@@ -1,0 +1,70 @@
+# ---------------------------------------------------------------
+# lightbench .gitignore
+# ---------------------------------------------------------------
+
+# --- your jobs: uploads, results, thumbnails, history ---
+# everything inside data/ stays on your machine, only the folder itself is kept
+data/*
+!data/.gitkeep
+
+# --- model weights (hundreds of megabytes, downloaded on first use) ---
+models/*
+!models/.gitkeep
+*.pth
+*.pt
+*.onnx
+*.safetensors
+*.part
+
+# --- python ---
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# the marker file setup.py writes once the virtualenv is ready
+.setup-complete
+
+# --- frontend ---
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# note: backend/static (the built frontend) is committed on purpose, so people
+# can run `python run.py` without installing node
+
+# --- editors and operating systems ---
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- secrets and local config ---
+.env
+.env.*
+!.env.example
+
+# --- logs and scratch files ---
+*.log
+tmp/
+temp/
+*.tmp
