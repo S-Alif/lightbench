@@ -12,6 +12,7 @@ import { navigateTo, useHashRoute } from './hooks/useRoute.js'
 import HistoryPage from './pages/HistoryPage.jsx'
 import JobDetailPage from './pages/JobDetailPage.jsx'
 import NewJobPage from './pages/NewJobPage.jsx'
+import GithubBadge from './components/ui/GithubBadge.jsx'
 
 // main app
 export default function App() {
@@ -178,6 +179,8 @@ export default function App() {
 					onClose={() => setRun(null)} 
 				/>
 			)}
+
+			<GithubBadge />
 		</ToastProvider>
 	)
 }
