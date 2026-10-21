@@ -5,7 +5,7 @@ import { Badge } from '../ui/Badge.jsx'
 import { CardShell, Empty, Scrim } from './CardShell.jsx'
 
 // a finished (or failed) file inside a job
-export function ResultCard({ jobId, item, onOpen }) {
+export function ResultCard({ jobId, item, onOpen, onEdit }) {
 	const isDone = item.status === 'done'
 	return (
 		<CardShell onClick={isDone ? onOpen : undefined} label={isDone ? `View ${item.out_name}` : undefined}>
@@ -28,6 +28,16 @@ export function ResultCard({ jobId, item, onOpen }) {
 					<Icon name="download" className="size-4.5" />
 				</a>
 			)}
+			{isDone && item.kind === 'image' && onEdit && (
+				<button
+					type="button"
+					onClick={(event) => { event.stopPropagation(); onEdit() }}
+					aria-label={`Crop or rotate ${item.out_name}`}
+					className="absolute bottom-3 right-3 z-10 inline-flex h-8 items-center gap-1.5 rounded-full bg-black/60 px-3 text-xs font-medium text-white backdrop-blur transition hover:bg-accent"
+				>
+					<Icon name="crop" className="size-3.5" />Crop / rotate
+				</button>
+			)}
 			{item.kind === 'video' && isDone && (
 				<span className="pointer-events-none absolute inset-0 grid place-items-center">
 					<span className="grid size-12 place-items-center rounded-full bg-black/50 text-white backdrop-blur">
@@ -35,7 +45,7 @@ export function ResultCard({ jobId, item, onOpen }) {
 					</span>
 				</span>
 			)}
-			<div className="absolute inset-x-0 bottom-0 p-3.5 text-white">
+			<div className={`absolute inset-x-0 bottom-0 p-3.5 text-white ${isDone && item.kind === 'image' && onEdit ? 'pr-32' : ''}`}>
 				<p className="truncate text-sm font-semibold" title={item.out_name || item.name}>{item.out_name || item.name}</p>
 				{isDone
 					? <p className="tnum truncate text-xs text-white/75">{item.w && `${item.w}×${item.h} · `}{fmtBytes(item.size)}{item.kind === 'video' && item.duration ? ` · ${fmtClock(item.duration)}` : ''}</p>

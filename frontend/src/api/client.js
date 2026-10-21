@@ -9,6 +9,9 @@ export const api = {
 	models: () => fetch('/api/models').then(json),
 	jobs: () => fetch('/api/jobs').then(json),
 	job: (id) => fetch(`/api/jobs/${id}`).then(json),
+	editResult: (jobId, itemId, edit) => fetch(`/api/jobs/${jobId}/items/${itemId}/edit`, {
+		method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ edit }),
+	}).then(json),
 	cancel: (id) => fetch(`/api/jobs/${id}/cancel`, { method: 'POST' }).then(json),
 	remove: (id) => fetch(`/api/jobs/${id}`, { method: 'DELETE' }).then(json),
 	openFolder: (id) => fetch(`/api/jobs/${id}/open-folder`, { method: 'POST' }).then(json),

@@ -4,6 +4,7 @@ import { jobTitle } from '../components/cards/JobCard.jsx'
 import { ResultCard } from '../components/cards/ResultCard.jsx'
 import Icon from '../components/icons/Icon.jsx'
 import DeleteDialog from '../components/jobs/DeleteDialog.jsx'
+import { CropEditor } from '../features/editor/CropEditor.jsx'
 import { Badge, StatusBadge } from '../components/ui/Badge.jsx'
 import { btn } from '../components/ui/buttonStyles.js'
 import { Modal } from '../components/ui/Modal.jsx'
@@ -13,42 +14,37 @@ import { copyText } from '../lib/clipboard.js'
 import { fmtBytes, fmtClock, fmtDate } from '../lib/format.js'
 import { modelLabel } from '../lib/models.js'
 
-function Viewer({ job, items, index, onIndex, onClose }) {
+function Viewer({ job, items, index, onIndex, onClose, onEdit }) {
 	const item = items[index]
 
 	useEffect(() => {
-
 		const key = (event) => {
 			if (event.key === 'ArrowLeft') onIndex((index - 1 + items.length) % items.length)
 			if (event.key === 'ArrowRight') onIndex((index + 1) % items.length)
 		}
-
 		document.addEventListener('keydown', key)
 		return () => document.removeEventListener('keydown', key)
-
 	}, [index, items.length, onIndex])
 	if (!item) return null
 
-	// this part is ai, I was just lazy
 	return (
-		<Modal 
-			open 
-			onClose={onClose} 
-			label={item.out_name} 
-			size="xl"
-		>
+		<Modal open onClose={onClose} label={item.out_name} size="xl">
 			<div className="mb-5 flex items-center gap-3">
 				<div className="min-w-0 flex-1">
 					<p className="truncate text-lg font-semibold">{item.out_name}</p>
 					<p className="tnum text-sm text-muted">{item.w ? `${item.w}×${item.h} · ` : ''}{fmtBytes(item.size)}{items.length > 1 ? ` · ${index + 1} of ${items.length}` : ''}</p>
 				</div>
 
+				{item.kind === 'image' && (
+					<button type="button" onClick={() => onEdit(item)} className={btn('secondary', 'sm')}><Icon name="crop" className="size-4" />Crop / rotate</button>
+				)}
+
 				{/* download button */}
 				<a 
 					href={api.fileUrl(job.id, item.id)} 
-					className={btn('primary', 'sm')}
-				>
-					<Icon name="download" className="size-4" />
+					className={btn('primary', 'sm')}><Icon name="download" 
+					className="size-4" 
+				/>
 					Download
 				</a>
 
@@ -96,6 +92,7 @@ export default function JobDetailPage({ id, system, models }) {
 	const [error, setError] = useState('')
 	const [view, setView] = useState(null)
 	const [del, setDel] = useState(false)
+	const [editingItem, setEditingItem] = useState(null)
 	const toast = useToast()
 
 	const load = useCallback(() => api.job(id).then(setJob).catch((loadError) => setError(loadError.message)), [id])
@@ -196,7 +193,7 @@ export default function JobDetailPage({ id, system, models }) {
 				<ul className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
 					{job.items.map((item) => {
 						const doneIndex = done.findIndex((doneItem) => doneItem.id === item.id)
-						return <li key={item.id} className="min-w-0"><ResultCard jobId={job.id} item={item} onOpen={() => setView(doneIndex)} /></li>
+						return <li key={item.id} className="min-w-0"><ResultCard jobId={job.id} item={item} onOpen={() => setView(doneIndex)} onEdit={() => setEditingItem(item)} /></li>
 					})}
 				</ul>
 			)}
@@ -204,7 +201,24 @@ export default function JobDetailPage({ id, system, models }) {
 				<p className="mt-6 text-sm text-muted">Nothing was produced. The error for each file is shown on its card.</p>
 			)}
 
-			{view !== null && done[view] && <Viewer job={job} items={done} index={view} onIndex={setView} onClose={() => setView(null)} />}
+			{view !== null && done[view] && <Viewer job={job} items={done} index={view} onIndex={setView} onClose={() => setView(null)} onEdit={setEditingItem} />}
+			{editingItem && (
+				<CropEditor
+					pickedFile={{ file: { name: editingItem.out_name }, url: api.fileUrl(job.id, editingItem.id, true) }}
+					applyLabel="Save as new"
+					note={`${/\.(jpg|webp)$/i.test(editingItem.out_name) ? 'Saving re-encodes this file once more, so expect a tiny quality loss. ' : ''}The result is saved as a new job in History. This one stays as it is.`}
+					onClose={() => setEditingItem(null)}
+					onApply={async (edit) => {
+						const itemToEdit = editingItem
+						setEditingItem(null)
+						if (!edit) { toast('Nothing was changed'); return }
+						try {
+							const created = await api.editResult(job.id, itemToEdit.id, edit)
+							navigateTo(`job/${created.id}`)
+						} catch (editError) { toast(editError.message) }
+					}}
+				/>
+			)}
 			{del && <DeleteDialog job={{ ...job, folder }} onClose={() => setDel(false)} onDeleted={() => navigateTo('history')} />}
 		</>
 	)

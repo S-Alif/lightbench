@@ -66,4 +66,5 @@ The optional form field `edits` on `POST /api/jobs` is a JSON list with one entr
 | GET | `/api/jobs/{id}/zip` | all results as a .zip |
 | POST | `/api/jobs/{id}/open-folder` | open the output folder (local machine only) |
 | GET | `/api/jobs/{id}/items/{item}/file` | a result (`?inline=1` for previews) |
+| POST | `/api/jobs/{id}/items/{item}/edit` | crop / rotate a finished image (`{"edit": ...}`); saved as a new job, the result is left as it is |
 | GET | `/api/jobs/{id}/items/{item}/thumb` | a thumbnail |

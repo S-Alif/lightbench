@@ -14,7 +14,7 @@ const HANDLES = {
 const CURSORS = { nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize', n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize' }
 
 // the basic editor: rotate and crop one image
-export function CropEditor({ pickedFile, edit, onApply, onClose }) {
+export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'Apply', note = '' }) {
 	const [naturalSize, setNaturalSize] = useState(null)
 	const [rotate, setRotate] = useState(edit?.rotate || 0)
 	const [crop, setCrop] = useState(edit?.crop || FULL_CROP)
@@ -167,12 +167,14 @@ export function CropEditor({ pickedFile, edit, onApply, onClose }) {
 					{ratio && ratio.width !== ratio.height && <button type="button" onClick={swapShape} className={btn('ghost', 'sm')}>Swap shape</button>}
 				</div>
 
+				{note && <p className="mt-4 text-sm text-muted">{note}</p>}
+
 				<div className="mt-5 flex flex-wrap items-center justify-between gap-3">
 					<p className="tnum text-sm text-muted">{shapeText}{turned && ` · ${cropWidthPixels}×${cropHeightPixels} px`}</p>
 					<div className="flex items-center gap-2">
 						<button type="button" className={btn('ghost', 'md')} onClick={reset} disabled={!turned}>Reset</button>
 						<button type="button" className={btn('secondary', 'md')} onClick={onClose}>Cancel</button>
-						<button type="button" className={btn('primary', 'md')} disabled={!turned} onClick={() => onApply(toEdit(rotate, crop))}>Apply</button>
+						<button type="button" className={btn('primary', 'md')} disabled={!turned} onClick={() => onApply(toEdit(rotate, crop))}>{applyLabel}</button>
 					</div>
 				</div>
 			</div>

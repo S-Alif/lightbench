@@ -77,6 +77,38 @@ async def create_job(request):
     return JSONResponse(manager.create(job_id, opts, uploads).to_dict())
 
 
+async def edit_result(request):
+    """crop / rotate a finished image and save it as a new job. The original result is left untouched."""
+    job = get_job_or_404(request)
+    item = next((candidate for candidate in job.items if candidate.id == request.path_params["item_id"]), None)
+    if not item or item.status != "done" or item.kind != "image" or not item.out or not item.out.is_file():
+        return error_response("That result can't be edited", 404)
+    try:
+        body = await request.json()
+        edit = validate_edit(body.get("edit") if isinstance(body, dict) else None)
+    except (ValueError, TypeError) as edit_error:
+        return error_response(f"Invalid edit: {edit_error}")
+    if not edit:
+        return error_response("Nothing to change")
+
+    # same format and quality as the result, no upscaling, no new watermark.
+    # job.opts is empty for jobs loaded from history, so read the saved settings instead.
+    opts = pipeline.JobOptions.from_dict({
+        "scale": 1, "fmt": item.out.suffix.lstrip(".").lower(), "quality": job.opts_dict.get("quality", 95),
+        "keep_metadata": job.opts_dict.get("keep_metadata", False), "watermark": None})
+    new_id = manager.new_id()
+    in_dir = JOBS_DIR / new_id / "in"
+    in_dir.mkdir(parents=True, exist_ok=True)
+    copy_path = in_dir / f"0_{item.out.name}"
+    try:
+        shutil.copyfile(item.out, copy_path)
+    except Exception:
+        shutil.rmtree(in_dir.parent, ignore_errors=True)
+        raise
+    new_name = f"{item.out.stem}-edited{item.out.suffix}"
+    return JSONResponse(manager.create(new_id, opts, [(new_name, copy_path, "image", edit)]).to_dict())
+
+
 async def get_job(request):
     return JSONResponse(get_job_or_404(request).to_dict())
 

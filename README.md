@@ -19,24 +19,31 @@ No accounts, no cloud, nothing leaves your machine.
 
 ## Contents
 
-- [Features](#features)
-- [Quick start](#quick-start)
-- [Hardware](#hardware)
-- [Models](#models)
-- [Using your own models](#using-your-own-models)
-- [Configuration](#configuration)
-- [Project layout](#project-layout)
-- [Privacy and security](#privacy-and-security)
-- [Tested on](#tested-on)
-- [Roadmap](#roadmap)
-- [Credits](#credits)
-- [License](#license)
+- [Lightbench](#lightbench)
+  - [Contents](#contents)
+  - [Features](#features)
+  - [Quick start](#quick-start)
+    - [Options](#options)
+    - [Developing the frontend](#developing-the-frontend)
+  - [Hardware](#hardware)
+  - [Models](#models)
+  - [Using your own models](#using-your-own-models)
+  - [Configuration](#configuration)
+  - [Project layout](#project-layout)
+  - [Privacy and security](#privacy-and-security)
+  - [Tested on](#tested-on)
+  - [Roadmap](#roadmap)
+  - [Credits](#credits)
+    - [Models](#models-1)
+    - [Libraries](#libraries)
+  - [License](#license)
 
 ## Features
 
 - **Photo and Art profiles**, or pick any model yourself, including your own `.pth` files
 - **2×, 3× and 4× upscaling**, or turn it off to only watermark or convert
 - **Basic editor:** crop and rotate each image before upscaling, with a free roam crop and ratio presets (platform names such as Instagram post or YouTube are shown only where the ratio matches their guidance)
+- **Edit finished results too:** crop and rotate a result from History. It is saved as a new entry and the original result stays untouched
 - **Text watermark** with nine positions, colour, opacity, and a size that is either a percentage of the image or fixed pixels
 - **Life-sized watermark preview** that copies the aspect ratio of your first file, so what you place is what you get
 - **Images:** JPG, PNG, WebP. **Videos:** H.264 MP4 with the original audio kept
@@ -66,6 +73,9 @@ That is all. The first launch sets everything up on its own:
 5. starts the server and opens your browser
 
 The first run takes a few minutes and downloads PyTorch, which is large. Every launch after that starts in seconds.
+
+> **[NOTE]**: I am developing this as a solo project and I am not taking any pull requests. But any suggestions and ideas are welcomed
+
 
 ### Options
 
