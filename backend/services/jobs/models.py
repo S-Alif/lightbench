@@ -38,20 +38,22 @@ class Item:
     height: int = 0
     duration: float = 0.0
     thumb: bool = False
+    edit: Optional[dict] = None   # crop and rotate chosen in the editor
 
     def to_dict(self) -> dict:
         return {"id": self.id, "name": self.name, "kind": self.kind, "status": self.status,
                 "progress": round(self.progress, 4), "message": self.message,
                 "out_name": self.out_name, "error": self.error, "size": self.size,
                 "src_size": self.src_size, "w": self.width, "h": self.height,
-                "duration": round(self.duration, 2), "thumb": self.thumb}
+                "duration": round(self.duration, 2), "thumb": self.thumb, "edit": self.edit}
 
     @classmethod
     def from_json(cls, data: dict, job_dir: Path) -> "Item":
         item = cls(id=data["id"], name=data["name"], kind=data["kind"], status=data.get("status", "error"),
                  out_name=data.get("out_name"), error=data.get("error"), size=data.get("size", 0),
                  src_size=data.get("src_size", 0), width=data.get("w", 0), height=data.get("h", 0),
-                 duration=data.get("duration", 0.0), thumb=data.get("thumb", False))
+                 duration=data.get("duration", 0.0), thumb=data.get("thumb", False),
+                 edit=data.get("edit"))
         if item.out_name:
             item.out = job_dir / "out" / item.out_name
         if item.status == "done":
@@ -64,7 +66,7 @@ class Job:
     id: str
     opts_dict: dict
     items: list[Item]
-    opts: Optional[pipeline.JobOptions] = None      # none for jobs loaded from history
+    opts: Optional[pipeline.JobOptions] = None      # None for jobs loaded from history
     created: float = field(default_factory=time.time)
     started: Optional[float] = None
     finished: Optional[float] = None

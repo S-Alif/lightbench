@@ -17,10 +17,11 @@ export const api = {
 	zipUrl: (jid) => `/api/jobs/${jid}/zip`,
 
 	// XHR instead of fetch so we can show upload progress (big videos, phones over Wi-Fi)
-	create(files, options, onProgress) {
+	create(files, options, edits, onProgress) {
 		return new Promise((resolve, reject) => {
 			const formData = new FormData()
 			formData.append('options', JSON.stringify(options))
+			if (edits.some(Boolean)) formData.append('edits', JSON.stringify(edits))   // one entry per file, same order
 			files.forEach((file) => formData.append('files', file))
 			const xhr = new XMLHttpRequest()
 			xhr.open('POST', '/api/jobs')

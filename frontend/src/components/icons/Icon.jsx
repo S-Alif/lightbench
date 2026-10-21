@@ -1,5 +1,4 @@
-// tiny stroke-icon set (24px grid). no icon font, nothing to download
-// I made this with gemini, didn't want a big icon library
+// Tiny stroke-icon set (24px grid). No icon font, nothing to download.
 const ICON_PATHS = {
 	upload: <><path d="M12 16V4m0 0L7 9m5-5 5 5" /><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></>,
 	download: <><path d="M12 4v12m0 0 5-5m-5 5-5-5" /><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></>,
@@ -19,6 +18,9 @@ const ICON_PATHS = {
 	right: <path d="m9 5 7 7-7 7" />,
 	alert: <><path d="M12 4 2.5 20h19z" /><path d="M12 10v4m0 3v.01" /></>,
 	chip: <><rect x="6" y="6" width="12" height="12" rx="2" /><path d="M9 2v4m6-4v4M9 18v4m6-4v4M2 9h4m-4 6h4m12-6h4m-4 6h4" /></>,
+	crop: <><path d="M6 2v14a2 2 0 0 0 2 2h14" /><path d="M2 6h14a2 2 0 0 1 2 2v14" /></>,
+	rotateLeft: <><path d="M4 4v5h5" /><path d="M4.5 9A8 8 0 1 1 4 13" /></>,
+	rotateRight: <><path d="M20 4v5h-5" /><path d="M19.5 9A8 8 0 1 0 20 13" /></>,
 	plus: <path d="M12 5v14M5 12h14" />,
 	play: <path d="M8 5v14l11-7z" fill="currentColor" />,
 	info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5m0-8v.01" /></>,

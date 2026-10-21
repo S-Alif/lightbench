@@ -12,7 +12,6 @@ import { navigateTo, useHashRoute } from './hooks/useRoute.js'
 import HistoryPage from './pages/HistoryPage.jsx'
 import JobDetailPage from './pages/JobDetailPage.jsx'
 import NewJobPage from './pages/NewJobPage.jsx'
-import GithubBadge from './components/ui/GithubBadge.jsx'
 
 // main app
 export default function App() {
@@ -82,10 +81,10 @@ export default function App() {
 	}, [run?.phase, run?.job?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
 	
-	const startRun = async (files, payload) => {
+	const startRun = async (files, payload, edits) => {
 		setRun({ phase: 'uploading', upload: 0 })
 		try {
-			const job = await api.create(files.map((pickedFile) => pickedFile.file), payload, (uploadFraction) => setRun((currentRun) => (currentRun ? { ...currentRun, upload: uploadFraction } : currentRun)))
+			const job = await api.create(files.map((pickedFile) => pickedFile.file), payload, edits, (uploadFraction) => setRun((currentRun) => (currentRun ? { ...currentRun, upload: uploadFraction } : currentRun)))
 			setRun({ phase: 'processing', upload: 1, job })
 			return true
 		} catch (error) {
@@ -108,9 +107,7 @@ export default function App() {
 						className="flex shrink-0 items-center gap-3 text-lg font-semibold tracking-tight sm:mr-2"
 						aria-label="Lightbench home" 
 					>
-						<span className="grid size-9 place-items-center rounded-xl bg-accent text-accent-ink shadow-sm">
-							<Icon name="sparkles" className="size-5" />
-						</span>
+						<span className="grid size-9 place-items-center rounded-xl bg-accent text-accent-ink shadow-sm"><Icon name="sparkles" className="size-5" /></span>
 						<span className="hidden sm:inline">Lightbench</span>
 					</a>
 
@@ -179,8 +176,6 @@ export default function App() {
 					onClose={() => setRun(null)} 
 				/>
 			)}
-
-			<GithubBadge />
 		</ToastProvider>
 	)
 }

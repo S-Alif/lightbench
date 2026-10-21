@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { CropEditor } from '../features/editor/CropEditor.jsx'
+import { editedSize } from '../features/editor/editMath.js'
 import { PickedCard } from '../components/cards/PickedCard.jsx'
 import Icon from '../components/icons/Icon.jsx'
 import { btn } from '../components/ui/buttonStyles.js'
@@ -23,6 +25,8 @@ export default function NewJobPage({
 	const [files, setFiles] = useState([])
 	const [notice, setNotice] = useState('')
 	const [over, setOver] = useState(false)
+	const [edits, setEdits] = useState({})            // crop and rotate per picked file id
+	const [editingId, setEditingId] = useState(null)
 	const input = useRef(null)
 	const filesRef = useRef(files)
 	filesRef.current = files
@@ -32,25 +36,19 @@ export default function NewJobPage({
 	// the watermark preview copies the proportions of the first picked file
 	const [firstFileSize, setFirstFileSize] = useState(null)
 	const firstFile = files[0]
-
 	useEffect(() => {
 		if (!firstFile) { setFirstFileSize(null); return }
 		let cancelled = false
-
 		readMediaSize(firstFile.url, firstFile.kind)
 			.then((size) => { if (!cancelled) setFirstFileSize(size) })
 			.catch(() => { if (!cancelled) setFirstFileSize(null) })
-
 		return () => { cancelled = true }
-
 	}, [firstFile?.id, firstFile?.url, firstFile?.kind])
 
-	// add to new job
 	const add = useCallback((list) => {
 		let kind = filesRef.current[0]?.kind || null
 		const picked = []
 		let unsupported = 0, mixed = 0
-
 		for (const file of [...list]) {
 			const fileKind = kindOf(file.name)
 			if (!fileKind) { 
@@ -65,19 +63,19 @@ export default function NewJobPage({
 			}
 			picked.push({ id: ++uid, file, kind: fileKind, url: URL.createObjectURL(file) })
 		}
-
 		const msgs = []
-
 		if (mixed) msgs.push(`${plural(mixed, 'file')} skipped: images and videos can't be processed in the same job. Clear the list to switch type.`)
-			
 		if (unsupported) msgs.push(`${plural(unsupported, 'file')} skipped: unsupported format.`)
 		setNotice(msgs.join(' '))
-
 		if (picked.length) setFiles((cur) => [...cur, ...picked])
 	}, [])
 
 	// removing a file
-	const remove = (id) => setFiles((cur) => {
+	const remove = (id) => {
+		setEdits((cur) => { const { [id]: dropped, ...rest } = cur; return rest })
+		removeFile(id)
+	}
+	const removeFile = (id) => setFiles((cur) => {
 		cur.filter((pickedFile) => pickedFile.id === id).forEach((pickedFile) => URL.revokeObjectURL(pickedFile.url))
 		return cur.filter((pickedFile) => pickedFile.id !== id)
 	})
@@ -86,9 +84,9 @@ export default function NewJobPage({
 	const clear = () => { 
 		files.forEach((pickedFile) => URL.revokeObjectURL(pickedFile.url))
 		setFiles([]) 
+		setEdits({})
 		setNotice('') 
 	}
-
 	useEffect(() => () => filesRef.current.forEach((pickedFile) => URL.revokeObjectURL(pickedFile.url)), [])
 
 	// paste an image from the clipboard
@@ -107,7 +105,7 @@ export default function NewJobPage({
 		(noTorch && 'PyTorch is not installed. Run python setup.py, or set Upscale to Off.') || ''
 
 	const start = async () => {
-		const started = await onStart(files, toPayload(opts))
+		const started = await onStart(files, toPayload(opts), files.map((pickedFile) => edits[pickedFile.id] || null))
 		if (started) clear()
 	}
 
@@ -137,8 +135,7 @@ export default function NewJobPage({
 						onDragOver={(event) => { event.preventDefault(); setOver(true) }}
 						onDragLeave={() => setOver(false)}
 						onDrop={(event) => { event.preventDefault(); setOver(false); add(event.dataTransfer.files) }}
-						className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed text-center transition ${over ? 'border-accent bg-accent/10' : 'border-line bg-surface/60 hover:border-accent/60 hover:bg-surface'} ${files.length ? 'px-6 py-8' : 'px-6 py-20'}`}
-					>
+						className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed text-center transition ${over ? 'border-accent bg-accent/10' : 'border-line bg-surface/60 hover:border-accent/60 hover:bg-surface'} ${files.length ? 'px-6 py-8' : 'px-6 py-20'}`}>
 						<input 
 							ref={input} 
 							type="file" 
@@ -147,15 +144,11 @@ export default function NewJobPage({
 							accept={accept} 
 							onChange={(event) => { add(event.target.files); event.target.value = '' }} 
 						/>
-						<span className={`grid place-items-center rounded-2xl bg-accent/15 text-accent ${files.length ? 'size-12' : 'size-16'}`}>
-							<Icon name="upload" className={files.length ? 'size-6' : 'size-8'} />
-						</span>
-						
+						<span className={`grid place-items-center rounded-2xl bg-accent/15 text-accent ${files.length ? 'size-12' : 'size-16'}`}><Icon name="upload" className={files.length ? 'size-6' : 'size-8'} /></span>
 						<div>
 							<p className={`font-semibold ${files.length ? 'text-base' : 'text-xl'}`}>{files.length ? `Add more ${lock}s` : 'Drop images or videos here'}</p>
 							<p className="mt-1 text-sm text-muted">or click to browse{!files.length && ' · paste works too'}</p>
 						</div>
-
 						{!files.length && (
 							<p className="mt-1 text-xs text-muted">
 								{IMG_EXT.map((event) => event.slice(1)).join(', ')} · {VID_EXT.map((event) => event.slice(1)).join(', ')}
@@ -171,7 +164,7 @@ export default function NewJobPage({
 
 					{files.length > 0 && (
 						<ul className="grid grid-cols-2 gap-5 sm:grid-cols-3 xl:grid-cols-4">
-							{files.map((pickedFile) => <li key={pickedFile.id} className="min-w-0"><PickedCard pickedFile={pickedFile} onRemove={() => remove(pickedFile.id)} /></li>)}
+							{files.map((pickedFile) => <li key={pickedFile.id} className="min-w-0"><PickedCard pickedFile={pickedFile} edited={Boolean(edits[pickedFile.id])} onEdit={() => setEditingId(pickedFile.id)} onRemove={() => remove(pickedFile.id)} /></li>)}
 						</ul>
 					)}
 				</div>
@@ -184,7 +177,7 @@ export default function NewJobPage({
 						modelsDir={modelsDir} 
 						onRefreshModels={onRefreshModels} 
 						refreshing={refreshing} 
-						sourceSize={firstFileSize}
+						sourceSize={firstFileSize && editedSize(firstFileSize.width, firstFileSize.height, edits[firstFile?.id])}
 					/>
 				</aside>
 			</div>
@@ -208,6 +201,17 @@ export default function NewJobPage({
 					</div>
 				</div>
 			</div>
+			{editingId && (
+				<CropEditor
+					pickedFile={files.find((pickedFile) => pickedFile.id === editingId)}
+					edit={edits[editingId]}
+					onClose={() => setEditingId(null)}
+					onApply={(edit) => {
+						setEdits((cur) => { const next = { ...cur }; if (edit) next[editingId] = edit; else delete next[editingId]; return next })
+						setEditingId(null)
+					}}
+				/>
+			)}
 		</>
 	)
 }

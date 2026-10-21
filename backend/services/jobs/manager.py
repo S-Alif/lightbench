@@ -33,7 +33,6 @@ class JobManager:
         self._load_history()
         threading.Thread(target=self._worker, daemon=True, name="upscale-worker").start()
 
-    # get the history
     def _load_history(self) -> None:
         for job_dir in JOBS_DIR.iterdir():
             if not (job_dir / "job.json").is_file():
@@ -52,20 +51,20 @@ class JobManager:
                 job.save()
             self.jobs[job.id] = job
 
-    # api used by the web layer
+    # ---- api used by the web layer
     @staticmethod
     def new_id() -> str:
         return uuid.uuid4().hex[:12]
 
     def create(self, job_id: str, opts: pipeline.JobOptions,
-               uploads: list[tuple[str, Path, str]]) -> Job:
-        """uploads: (original name, path already saved in the job folder, kind)"""
+               uploads: list[tuple[str, Path, str, Optional[dict]]]) -> Job:
+        """uploads: (original name, path already saved in the job folder, kind, edit or None)"""
         options_dict = opts.to_dict()
         if not options_dict.get("watermark"):
             options_dict.pop("watermark", None)
         job = Job(id=job_id, opts=opts, opts_dict=options_dict, items=[])
-        for name, path, kind in uploads:
-            job.items.append(Item(id=uuid.uuid4().hex[:8], name=name, kind=kind, src=path,
+        for name, path, kind, edit in uploads:
+            job.items.append(Item(id=uuid.uuid4().hex[:8], name=name, kind=kind, src=path, edit=edit,
                                   src_size=path.stat().st_size))
         job.save()
         with self.lock:
@@ -135,29 +134,27 @@ class JobManager:
                 target_item.progress, target_item.message = frac, msg or target_item.message
 
             try:
-                process_file = pipeline.process_video if item.kind == "video" else pipeline.process_image
-                info = process_file(str(item.src), dst, job.opts, progress, job.cancel) or {}
+                if item.kind == "video":
+                    info = pipeline.process_video(str(item.src), dst, job.opts, progress, job.cancel) or {}
+                else:
+                    info = pipeline.process_image(str(item.src), dst, job.opts, progress, job.cancel,
+                                                  edit=item.edit) or {}
                 item.out, item.status, item.progress, item.message = dst, "done", 1.0, "Done"
                 item.size = dst.stat().st_size
                 item.width, item.height = info.get("w", 0), info.get("h", 0)
                 item.duration = info.get("duration", 0.0)
                 item.thumb = thumbnails.make_thumb(dst, item.kind, job.dir / "thumbs" / f"{item.id}.jpg")
-
             except Cancelled:
                 item.status, item.message, item.out_name = "cancelled", "Cancelled", None
                 dst.unlink(missing_ok=True)
-                
             except Exception as error:  # noqa: BLE001
                 item.status, item.error, item.out_name = "error", str(error) or error.__class__.__name__, None
                 item.message = ""
                 dst.unlink(missing_ok=True)
-
             finally:
                 if item.src:
                     item.src.unlink(missing_ok=True)   # original no longer needed
-
             job.save()
-
         job.finished = time.time()
         job.save()
         shutil.rmtree(job.dir / "in", ignore_errors=True)

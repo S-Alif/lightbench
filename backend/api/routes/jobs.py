@@ -12,6 +12,7 @@ from starlette.responses import JSONResponse
 
 from ...config import JOBS_DIR
 from ...core import pipeline
+from ...core.editing.operations import validate_edit
 from ...core.media.types import IMAGE_EXT, VIDEO_EXT
 from ...services.jobs import JobBusy
 from ..deps import manager
@@ -33,6 +34,15 @@ async def create_job(request):
     if not files:
         return error_response("No files uploaded")
 
+    # one crop / rotate entry per file, in the same order as the files (null = untouched)
+    try:
+        raw_edits = json.loads(form.get("edits") or "[]")
+        if not isinstance(raw_edits, list):
+            raise ValueError("edits must be a list")
+        edits = [validate_edit(raw_edits[idx]) if idx < len(raw_edits) else None for idx in range(len(files))]
+    except (ValueError, TypeError) as edits_error:
+        return error_response(f"Invalid edits: {edits_error}")
+
     kinds = {("image" if Path(uploaded_file.filename or "").suffix.lower() in IMAGE_EXT else
               "video" if Path(uploaded_file.filename or "").suffix.lower() in VIDEO_EXT else None) for uploaded_file in files}
     kinds.discard(None)
@@ -48,11 +58,16 @@ async def create_job(request):
             kind = "image" if ext in IMAGE_EXT else "video" if ext in VIDEO_EXT else None
             if not kind:
                 continue
+            if kind == "video" and edits[idx]:
+                raise ValueError("Crop and rotate are only available for images")
             dst = in_dir / f"{idx}_{safe_name(uploaded_file.filename)}"
             with open(dst, "wb") as out:
                 while chunk := await uploaded_file.read(1 << 20):
                     out.write(chunk)
-            uploads.append((safe_name(uploaded_file.filename), dst, kind))
+            uploads.append((safe_name(uploaded_file.filename), dst, kind, edits[idx]))
+    except ValueError as edit_error:
+        shutil.rmtree(in_dir.parent, ignore_errors=True)
+        return error_response(str(edit_error))
     except Exception:
         shutil.rmtree(in_dir.parent, ignore_errors=True)
         raise

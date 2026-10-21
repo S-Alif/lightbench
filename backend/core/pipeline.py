@@ -15,6 +15,7 @@ import numpy as np
 from PIL import Image, ImageOps
 from PIL.PngImagePlugin import PngInfo
 
+from .editing.operations import apply_edit
 from .errors import Cancelled
 from .media import watermark as watermark_module
 from .models import registry
@@ -42,13 +43,10 @@ class JobOptions:
     def from_dict(cls, data: dict) -> "JobOptions":
         options = cls()
         options.model = str(data.get("model") or "auto")
-
         if options.model != "auto":
             registry.safe_model_name(options.model)
-
             if not registry.weights_path(options.model).is_file():
                 raise ValueError(f"Model file not found in the models folder: {options.model}")
-            
         options.profile = data.get("profile", options.profile)
         options.scale = int(data.get("scale", options.scale))
         options.fmt = data.get("fmt", options.fmt)
@@ -59,23 +57,17 @@ class JobOptions:
         options.video_crf = int(data.get("video_crf", options.video_crf))
         options.video_preset = data.get("video_preset", options.video_preset)
         options.watermark = watermark_module.WatermarkOptions.from_dict(data.get("watermark"))
-
         if options.profile not in ("photo", "art"):
             raise ValueError("profile must be 'photo' or 'art'")
-        
         if options.scale not in (1, 2, 3, 4):
             raise ValueError("scale must be 1, 2, 3 or 4")
-        
         if options.fmt not in ("jpg", "png", "webp"):
             raise ValueError("fmt must be jpg, png or webp")
-        
         if options.video_preset not in ("ultrafast", "veryfast", "fast", "medium", "slow", "slower"):
             options.video_preset = "medium"
-
         options.quality = min(100, max(1, options.quality))
         options.video_crf = min(40, max(0, options.video_crf))
         options.tile = min(2048, max(0, options.tile))
-
         return options
 
     def to_dict(self) -> dict:
@@ -85,10 +77,8 @@ class JobOptions:
 def _get_upscaler(options: JobOptions, progress: Progress):
     from .upscaler import Upscaler
     file = registry.resolve(options.profile, options.scale, options.model)
-
     if not registry.weights_present(file):
         progress(0.0, "Downloading model (first run only)…")
-
     return Upscaler.get(
         file, fp32=options.fp32,
         on_download=lambda fraction: progress(0.0, f"Downloading model… {int(fraction * 100)}%"))
@@ -97,26 +87,20 @@ def _get_upscaler(options: JobOptions, progress: Progress):
 def output_name(stem: str, options: JobOptions, video: bool = False) -> str:
     ext = "mp4" if video else options.fmt
     tag = f"-{options.scale}x" if options.scale > 1 else ("-wm" if options.watermark else "")
-
     return f"{stem}{tag}.{ext}"
 
 
 # ------------------------------------------------------------------ images --
 def _save(img: Image.Image, path: Path, options: JobOptions, exif, icc, text) -> None:
     save_kwargs: dict = {}
-
     if icc:
         save_kwargs["icc_profile"] = icc
-
     if options.keep_metadata and exif:
         save_kwargs["exif"] = exif
-
     if options.fmt == "jpg":
         img.save(path, "JPEG", quality=options.quality, optimize=True, **save_kwargs)
-
     elif options.fmt == "webp":
         img.save(path, "WEBP", quality=options.quality, method=4, **save_kwargs)
-
     else:
         if options.keep_metadata and text:
             info = PngInfo()
@@ -127,13 +111,16 @@ def _save(img: Image.Image, path: Path, options: JobOptions, exif, icc, text) ->
 
 
 def process_image(src: str, dst: Path, options: JobOptions, progress: Progress,
-                  cancel: Optional[threading.Event] = None) -> dict:
+                  cancel: Optional[threading.Event] = None, edit: Optional[dict] = None) -> dict:
     with Image.open(src) as source_image:
         source_image = ImageOps.exif_transpose(source_image)          # same orientation handling as cv2.imread
         exif = source_image.info.get("exif")
         icc = source_image.info.get("icc_profile")
         text = dict(getattr(source_image, "text", {}) or {}) if source_image.format == "PNG" else {}
         rgb = np.asarray(source_image.convert("RGB"))
+
+    # crop and rotate first, so nothing gets upscaled that is cut away anyway
+    rgb = apply_edit(rgb, edit)
 
     if options.scale > 1:
         upscaler = _get_upscaler(options, progress)
@@ -146,16 +133,12 @@ def process_image(src: str, dst: Path, options: JobOptions, progress: Progress,
 
     if cancel is not None and cancel.is_set():
         raise Cancelled()
-    
     if options.watermark:
         progress(0.96, "Adding watermark")
         height, width = rgb.shape[:2]
         rgb = watermark_module.apply(rgb, watermark_module.render((width, height), options.watermark))
-
     progress(0.98, "Saving")
-
     _save(Image.fromarray(rgb), dst, options, exif, icc, text)
-
     progress(1.0, "Done")
     return {"w": int(rgb.shape[1]), "h": int(rgb.shape[0])}
 
@@ -171,15 +154,11 @@ def process_video(src: str, dst: Path, options: JobOptions, progress: Progress,
     def per_frame(frame: np.ndarray) -> np.ndarray:
         if upscaler is not None:
             frame = upscaler.enhance(frame, options.scale, tile=options.tile, cancel=cancel)
-
         if options.watermark:
             height, width = frame.shape[:2]
-
             if "p" not in patch_cache:                    # render once, reuse for every frame
                 patch_cache["p"] = watermark_module.render((width, height), options.watermark)
-
             frame = watermark_module.apply(frame, patch_cache["p"])
-            
         return frame
 
     video.process_video(str(src), str(dst), per_frame, crf=options.video_crf, preset=options.video_preset,
