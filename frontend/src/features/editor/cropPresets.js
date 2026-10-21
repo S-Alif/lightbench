@@ -1,4 +1,4 @@
-// ---- crop shapes offered in the editor ------------------------------------
+// crop shapes offered in the editor
 // a platform name is shown only when the ratio is that platform's own guidance;
 // every other ratio is just written as the ratio.
 const PLATFORM_NAMES = {

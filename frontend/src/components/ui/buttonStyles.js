@@ -1,4 +1,4 @@
-// ---- buttons -------------------------------------------------------------
+// buttons
 const BTN_BASE = 'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition active:scale-[.98] disabled:opacity-45 disabled:pointer-events-none select-none whitespace-nowrap'
 
 const BTN_VARIANT = {

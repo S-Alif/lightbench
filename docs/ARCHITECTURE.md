@@ -26,7 +26,7 @@
 | `core/models/architectures.py` | `RRDBNet`, `SRVGGNetCompact` |
 | `core/models/loader.py` | reads weight files, inspects custom models, builds the network |
 | `core/media/` | `video.py` (ffmpeg pipes), `thumbnails.py`, `watermark.py`, `types.py` |
-| `core/editing/` | planned: rotate, flip, crop, metadata |
+| `core/editing/operations.py` | `validate_edit` and `apply_edit`: rotate, then crop (images only) |
 
 ## Frontend (`frontend/src/`)
 
@@ -39,6 +39,7 @@
 | `components/cards/` | `CardShell`, `PickedCard`, `ResultCard`, `JobCard` |
 | `components/layout/` | `Device`, `Banner` |
 | `components/jobs/` | progress `Overlay`, `DeleteDialog` |
+| `features/editor/` | `CropEditor` (opened from a picked image's "Crop / rotate" button), `cropPresets.js`, `editMath.js` |
 | `features/settings/` | settings panel, defaults, controls, watermark preview |
 | `pages/` | `NewJobPage`, `HistoryPage`, `JobDetailPage` |
 
@@ -46,8 +47,12 @@
 
 1. The browser posts files and options to `POST /api/jobs` (`api/routes/jobs.py`).
 2. The route validates the options (`core/pipeline.JobOptions`), saves the uploads into `data/jobs/<id>/in/` and hands the job to `JobManager`.
-3. The worker thread runs each file through `core/pipeline.py`: upscale (`core/upscaler.py`), watermark (`core/media/watermark.py`), save.
+3. The worker thread runs each file through `core/pipeline.py`: edit (`core/editing`), upscale (`core/upscaler.py`), watermark (`core/media/watermark.py`), save.
 4. Progress is kept in memory and polled by the browser from `GET /api/jobs/{id}`. The finished state is written to `job.json`.
+
+## Edits
+
+The optional form field `edits` on `POST /api/jobs` is a JSON list with one entry per file, in the same order (`null` for no edit). An entry is `{"rotate": 0|90|180|270, "crop": {"x","y","width","height"} | null}`. Rotation is clockwise and happens first. Crop values are fractions (0 to 1) of the rotated image, so the browser preview and the output agree at any resolution. The edit is stored on the item in `job.json`.
 
 ## API
 

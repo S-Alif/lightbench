@@ -13,7 +13,7 @@ const HANDLES = {
 }
 const CURSORS = { nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize', n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize' }
 
-// ---- the basic editor: rotate and crop one image ---------------------------
+// the basic editor: rotate and crop one image
 export function CropEditor({ pickedFile, edit, onApply, onClose }) {
 	const [naturalSize, setNaturalSize] = useState(null)
 	const [rotate, setRotate] = useState(edit?.rotate || 0)
@@ -62,7 +62,7 @@ export function CropEditor({ pickedFile, edit, onApply, onClose }) {
 
 	const reset = () => { setRotate(0); setCrop(FULL_CROP); setPresetId('free'); setSwapped(false) }
 
-	// ---- dragging ----
+	// dragging
 	const pointerFraction = (pointerEvent) => {
 		const box = stageRef.current.getBoundingClientRect()
 		return { x: (pointerEvent.clientX - box.left) / box.width, y: (pointerEvent.clientY - box.top) / box.height }

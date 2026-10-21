@@ -1,4 +1,4 @@
-// ---- models --------------------------------------------------------------
+// models
 const AUTO = {
 	photo: { 2: 'RealESRGAN_x2plus.pth', 3: 'RealESRGAN_x4plus.pth', 4: 'RealESRGAN_x4plus.pth' },
 	art: { 2: 'RealESRGAN_x4plus_anime_6B.pth', 3: 'RealESRGAN_x4plus_anime_6B.pth', 4: 'RealESRGAN_x4plus_anime_6B.pth' },

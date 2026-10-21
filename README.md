@@ -19,29 +19,24 @@ No accounts, no cloud, nothing leaves your machine.
 
 ## Contents
 
-- [Lightbench](#lightbench)
-  - [Contents](#contents)
-  - [Features](#features)
-  - [Quick start](#quick-start)
-    - [Options](#options)
-    - [Developing the frontend](#developing-the-frontend)
-  - [Hardware](#hardware)
-  - [Models](#models)
-  - [Using your own models](#using-your-own-models)
-  - [Configuration](#configuration)
-  - [Project layout](#project-layout)
-  - [Privacy and security](#privacy-and-security)
-  - [Tested on](#tested-on)
-  - [Roadmap](#roadmap)
-  - [Credits](#credits)
-    - [Models](#models-1)
-    - [Libraries](#libraries)
-  - [License](#license)
+- [Features](#features)
+- [Quick start](#quick-start)
+- [Hardware](#hardware)
+- [Models](#models)
+- [Using your own models](#using-your-own-models)
+- [Configuration](#configuration)
+- [Project layout](#project-layout)
+- [Privacy and security](#privacy-and-security)
+- [Tested on](#tested-on)
+- [Roadmap](#roadmap)
+- [Credits](#credits)
+- [License](#license)
 
 ## Features
 
 - **Photo and Art profiles**, or pick any model yourself, including your own `.pth` files
 - **2×, 3× and 4× upscaling**, or turn it off to only watermark or convert
+- **Basic editor:** crop and rotate each image before upscaling, with a free roam crop and ratio presets (platform names such as Instagram post or YouTube are shown only where the ratio matches their guidance)
 - **Text watermark** with nine positions, colour, opacity, and a size that is either a percentage of the image or fixed pixels
 - **Life-sized watermark preview** that copies the aspect ratio of your first file, so what you place is what you get
 - **Images:** JPG, PNG, WebP. **Videos:** H.264 MP4 with the original audio kept
@@ -110,9 +105,6 @@ Some GTX 16xx cards produce black images in half precision. If that happens, tur
 
 Videos also need FFmpeg. A copy is installed for you through `imageio-ffmpeg`, nothing to do.
 
-> NOTE: I am developing this as a solo project. Hence, I am not accepting any PR. But ideas and suggestions are always welcomed
-
-
 ## Models
 
 Lightbench uses the official **Real-ESRGAN** weights. They are **not stored in this repository**. They download automatically the first time you need them and are saved in the `models/` folder.
@@ -168,7 +160,8 @@ lightbench/
 │   ├── api/                http layer: router, shared helpers, routes/
 │   ├── services/jobs/      job queue, worker thread and history on disk
 │   ├── core/               processing, no web code
-│   │   ├── pipeline.py     upscale, watermark, save
+│   │   ├── pipeline.py     edit, upscale, watermark, save
+│   │   ├── editing/        crop and rotate
 │   │   ├── upscaler.py     tiled inference with out-of-memory fallback
 │   │   ├── models/         model catalog, architectures, weight loading
 │   │   └── media/          video, thumbnails, watermark, file types
@@ -204,7 +197,7 @@ The code is written to work on Windows, macOS and Linux. The CPU path, the API a
 
 ## Roadmap
 
-- Photo editor: crop, rotate, color adjustments
+- Basic editor: colour adjustments, straighten, metadata clean-up (crop and rotate are done)
 - Image watermarks (logos), not only text
 - More model families
 - Optional password for `--lan`

@@ -1,4 +1,4 @@
-// ---- crop and rotate maths ------------------------------------------------
+// crop and rotate maths
 // all crop numbers are fractions (0 to 1) of the rotated image, the same
 // convention the backend uses, so the preview and the output always agree.
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 
-// ---- modal ----------------------------------------------------------------
+// modal
 export function Modal({ open, onClose, children, label, size = 'md', closable = true }) {
 	const ref = useRef(null)
 

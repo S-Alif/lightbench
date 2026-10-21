@@ -4,7 +4,7 @@ import Icon from '../icons/Icon.jsx'
 import { Badge } from '../ui/Badge.jsx'
 import { CardShell, Scrim } from './CardShell.jsx'
 
-// ---- a file the user picked, before upload --------------------------------
+// a file the user picked, before upload
 export function PickedCard({ pickedFile, edited, onEdit, onRemove }) {
 	const [meta, setMeta] = useState('')
 	return (
@@ -28,9 +28,9 @@ export function PickedCard({ pickedFile, edited, onEdit, onRemove }) {
 					<Icon name="crop" className="size-4" />
 				</button>
 			)}
-			<button 
-				type="button" 
-				onClick={onRemove} 
+			<button
+				type="button"
+				onClick={onRemove}
 				aria-label={`Remove ${pickedFile.file.name}`}
 				className="absolute right-2.5 top-2.5 grid size-8 place-items-center rounded-full bg-black/55 text-white backdrop-blur transition hover:bg-bad sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
 			>

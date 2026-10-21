@@ -1,4 +1,4 @@
-// ---- form pieces ---------------------------------------------------------
+// form pieces
 export function Seg({ value, options, onChange, disabled, label }) {
 	return (
 		<div role="radiogroup" aria-label={label} className="grid auto-cols-fr grid-flow-col gap-1 rounded-xl bg-sunken p-1">

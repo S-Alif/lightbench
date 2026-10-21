@@ -1,4 +1,4 @@
-// ---- badges ---------------------------------------------------------------
+// badges
 const TONE = {
 	neutral: 'bg-sunken text-muted',
 	ok: 'bg-ok/15 text-ok',
