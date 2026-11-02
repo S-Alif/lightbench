@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { CropEditor } from '../features/editor/CropEditor.jsx'
 import { editedSize } from '../features/editor/editMath.js'
 import { PickedCard } from '../components/cards/PickedCard.jsx'
+import { ResultCard } from '../components/cards/ResultCard.jsx'
+import RunPanel from '../components/jobs/RunPanel.jsx'
+import { fileState } from '../lib/runStats.js'
 import Icon from '../components/icons/Icon.jsx'
 import { btn } from '../components/ui/buttonStyles.js'
 import { toPayload } from '../features/settings/defaults.js'
@@ -20,7 +23,11 @@ export default function NewJobPage({
 	onRefreshModels, 
 	refreshing, 
 	system, 
-	onStart 
+	onStart,
+	run,
+	onCancelRun,
+	onViewRun,
+	onDismissRun
 }) {
 	const [files, setFiles] = useState([])
 	const [notice, setNotice] = useState('')
@@ -30,6 +37,8 @@ export default function NewJobPage({
 	const input = useRef(null)
 	const filesRef = useRef(files)
 	filesRef.current = files
+	const runRef = useRef(run)
+	runRef.current = run                 // while a job is on screen the file list is locked
 
 	const lock = files[0]?.kind || null     // a job is all images or all videos, never both
 
@@ -46,6 +55,7 @@ export default function NewJobPage({
 	}, [firstFile?.id, firstFile?.url, firstFile?.kind])
 
 	const add = useCallback((list) => {
+		if (runRef.current) return
 		let kind = filesRef.current[0]?.kind || null
 		const picked = []
 		let unsupported = 0, mixed = 0
@@ -105,9 +115,11 @@ export default function NewJobPage({
 		(noTorch && 'PyTorch is not installed. Run python setup.py, or set Upscale to Off.') || ''
 
 	const start = async () => {
-		const started = await onStart(files, toPayload(opts), files.map((pickedFile) => edits[pickedFile.id] || null))
-		if (started) clear()
+		await onStart(files, toPayload(opts), files.map((pickedFile) => edits[pickedFile.id] || null))
 	}
+
+	// after a finished job, clear the list so a new batch can start
+	const startNewBatch = () => { clear(); onDismissRun() }
 
 	const accept = lock === 'image' ? 'image/*' : lock === 'video' ? 'video/*,.mkv' : 'image/*,video/*,.mkv'
 	const summary = [
@@ -127,8 +139,12 @@ export default function NewJobPage({
 			<div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_420px] xl:grid-cols-[minmax(0,1fr)_460px] xl:gap-10">
 				<div className="min-w-0 space-y-6">
 
+					{run && (
+						<RunPanel run={run} onCancel={onCancelRun} onView={onViewRun} onNewBatch={startNewBatch} onDismiss={onDismissRun} />
+					)}
+
 					{/* file input */}
-					<div
+					{!run && <div
 						role="button" tabIndex={0} aria-label="Add files"
 						onClick={() => input.current.click()}
 						onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && (event.preventDefault(), input.current.click())}
@@ -154,7 +170,7 @@ export default function NewJobPage({
 								{IMG_EXT.map((event) => event.slice(1)).join(', ')} · {VID_EXT.map((event) => event.slice(1)).join(', ')}
 							</p>
 						)}
-					</div>
+					</div>}
 
 					{notice && (
 						<p role="alert" className="flex gap-3 rounded-2xl bg-warn/12 p-4 text-sm text-warn ring-1 ring-warn/30">
@@ -164,7 +180,13 @@ export default function NewJobPage({
 
 					{files.length > 0 && (
 						<ul className="grid grid-cols-2 gap-5 sm:grid-cols-3 xl:grid-cols-4">
-							{files.map((pickedFile) => <li key={pickedFile.id} className="min-w-0"><PickedCard pickedFile={pickedFile} edited={Boolean(edits[pickedFile.id])} onEdit={() => setEditingId(pickedFile.id)} onRemove={() => remove(pickedFile.id)} /></li>)}
+							{files.map((pickedFile, index) => <li key={pickedFile.id} className="min-w-0"><PickedCard pickedFile={pickedFile} edited={Boolean(edits[pickedFile.id])} state={fileState(run, index)} onEdit={() => setEditingId(pickedFile.id)} onRemove={() => remove(pickedFile.id)} /></li>)}
+						</ul>
+					)}
+					{/* the page was left and reopened mid-job, so the picked files are gone: show the job's own cards */}
+					{run?.job && files.length === 0 && (
+						<ul className="grid grid-cols-2 gap-5 sm:grid-cols-3 xl:grid-cols-4">
+							{run.job.items.map((item) => <li key={item.id} className="min-w-0"><ResultCard jobId={run.job.id} item={item} /></li>)}
 						</ul>
 					)}
 				</div>
@@ -177,12 +199,13 @@ export default function NewJobPage({
 						modelsDir={modelsDir} 
 						onRefreshModels={onRefreshModels} 
 						refreshing={refreshing} 
+						disabled={Boolean(run)}
 						sourceSize={firstFileSize && editedSize(firstFileSize.width, firstFileSize.height, edits[firstFile?.id])}
 					/>
 				</aside>
 			</div>
 
-			<div className="sticky bottom-4 z-30 mt-10">
+			{!run && <div className="sticky bottom-4 z-30 mt-10">
 				<div className="flex flex-col gap-4 rounded-2xl bg-surface/95 p-4 ring-1 ring-line shadow-2xl backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6">
 					<div className="min-w-0">
 						<p className="tnum truncate text-[15px] font-medium">{summary}</p>
@@ -200,7 +223,7 @@ export default function NewJobPage({
 						</button>
 					</div>
 				</div>
-			</div>
+			</div>}
 			{editingId && (
 				<CropEditor
 					pickedFile={files.find((pickedFile) => pickedFile.id === editingId)}

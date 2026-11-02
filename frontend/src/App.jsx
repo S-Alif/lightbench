@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from './api/client.js'
 import Icon from './components/icons/Icon.jsx'
-import Overlay from './components/jobs/Overlay.jsx'
 import { Banner } from './components/layout/Banner.jsx'
 import { Device } from './components/layout/Device.jsx'
 import { btn } from './components/ui/buttonStyles.js'
@@ -165,17 +164,13 @@ export default function App() {
 						refreshing={refreshing} 
 						system={system} 
 						onStart={startRun} 
+						run={run}
+						onCancelRun={() => run?.job && api.cancel(run.job.id)}
+						onViewRun={() => { const id = run.job.id; setRun(null); navigateTo(`job/${id}`) }}
+						onDismissRun={() => setRun(null)}
 					/>
 				)}
 			</main>
-
-			{run && (
-				<Overlay run={run}
-					onCancel={() => run.job && api.cancel(run.job.id)}
-					onView={() => { const id = run.job.id; setRun(null); navigateTo(`job/${id}`) }}
-					onClose={() => setRun(null)} 
-				/>
-			)}
 		</ToastProvider>
 	)
 }

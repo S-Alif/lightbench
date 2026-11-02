@@ -81,7 +81,6 @@ input[type="range"] { accent-color: var(--accent); }
 .anim-fade { animation: fade .18s ease-out both; }
 .anim-slide { animation: slide 1.3s ease-in-out infinite; }
 
-.ring-fill { transition: stroke-dashoffset .5s ease; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }

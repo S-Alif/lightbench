@@ -6,6 +6,7 @@ const json = async (response) => {
 
 export const api = {
 	system: () => fetch('/api/system').then(json),
+	usage: () => fetch('/api/system/usage').then(json),
 	models: () => fetch('/api/models').then(json),
 	jobs: () => fetch('/api/jobs').then(json),
 	job: (id) => fetch(`/api/jobs/${id}`).then(json),
