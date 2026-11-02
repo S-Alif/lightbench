@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api } from './api/client.js'
+import { LOCKED_EVENT, api } from './api/client.js'
 import Icon from './components/icons/Icon.jsx'
 import { Banner } from './components/layout/Banner.jsx'
 import { Device } from './components/layout/Device.jsx'
@@ -10,6 +10,7 @@ import { useStored } from './hooks/usePersistentState.js'
 import { navigateTo, useHashRoute } from './hooks/useRoute.js'
 import HistoryPage from './pages/HistoryPage.jsx'
 import JobDetailPage from './pages/JobDetailPage.jsx'
+import LoginPage from './pages/LoginPage.jsx'
 import NewJobPage from './pages/NewJobPage.jsx'
 
 // main app
@@ -23,6 +24,16 @@ export default function App() {
 	const [refreshing, setRefreshing] = useState(false)
 	const [run, setRun] = useState(null)       // { phase: uploading|processing|done|error, upload, job, error }
 	const [jobCount, setJobCount] = useState(null)
+	const [auth, setAuth] = useState(null)      // { required, authenticated, local } from the server
+
+	// is a password needed, and has this browser entered it?
+	useEffect(() => { api.authStatus().then(setAuth).catch(() => setAuth({ required: false, authenticated: true, local: true })) }, [])
+	useEffect(() => {
+		const lock = () => setAuth((current) => (current ? { ...current, authenticated: false } : current))
+		window.addEventListener(LOCKED_EVENT, lock)
+		return () => window.removeEventListener(LOCKED_EVENT, lock)
+	}, [])
+	const ready = Boolean(auth?.authenticated)
 
 	// theme changer
 	useEffect(() => {
@@ -45,6 +56,7 @@ export default function App() {
 
 	// check backend and connect
 	useEffect(() => {
+		if (!ready) return
 		api.system().then(setSystem).catch(() => setSystem({ error: 'Cannot reach the server', backend: 'none' }))
 		refreshModels()
 		// re-attach to a job that is still running (page was reloaded)
@@ -53,9 +65,9 @@ export default function App() {
 			const act = jobsResponse.jobs.find((job) => job.status === 'running' || job.status === 'queued')
 			if (act) setRun({ phase: 'processing', upload: 1, job: await api.job(act.id) })
 		}).catch(() => { })
-	}, [refreshModels])
+	}, [refreshModels, ready])
 
-	useEffect(() => { api.jobs().then((jobsResponse) => setJobCount(jobsResponse.jobs.length)).catch(() => { }) }, [route.page, route.id, run?.phase])
+	useEffect(() => { if (ready) api.jobs().then((jobsResponse) => setJobCount(jobsResponse.jobs.length)).catch(() => { }) }, [ready, route.page, route.id, run?.phase])
 
 	// poll the running job
 	useEffect(() => {
@@ -91,6 +103,15 @@ export default function App() {
 			return false
 		}
 	}
+
+	const logOut = async () => {
+		await api.logout().catch(() => { })
+		setRun(null)
+		setAuth((current) => ({ ...current, authenticated: false }))
+	}
+
+	if (!auth) return null
+	if (!auth.authenticated) return <LoginPage onLoggedIn={() => window.location.reload()} />
 
 	const page = route.page
 	const navCls = (active) => `inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-xl px-3 text-sm sm:px-4 font-medium transition ${active ? 'bg-sunken text-ink' : 'text-muted hover:bg-sunken hover:text-ink'}`
@@ -131,6 +152,7 @@ export default function App() {
 					</nav>
 					<div className="ml-auto flex items-center gap-3">
 						<Device system={system} />
+						{auth.required && !auth.local && <button type="button" onClick={logOut} className={btn('ghost', 'sm')}>Log out</button>}
 						<button 
 							type="button" 
 							onClick={() => setTheme(isDark ? 'light' : 'dark')} 

@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Start Lightbench:  python run.py
 
-    --lan          listen on your network too (open it from your phone)
+    --lan          listen on your network too (open it from your phone). Other devices must enter
+                   a password, a new random one is made each start unless you give --password
+    --password X   the password to ask other devices for (or set LIGHTBENCH_PASSWORD)
+    --no-password  with --lan, ask for no password (only on a network you fully trust)
     --port 8000    pick a port (the next free one is used if it's taken)
     --no-browser   don't open a browser tab
 
@@ -11,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import secrets
 import socket
 import subprocess
 import sys
@@ -33,6 +37,13 @@ def free_port(host: str, start: int) -> int:
     raise SystemExit("No free port found")
 
 
+def make_password() -> str:
+    """easy to type on a phone: no look-alike characters, split in the middle"""
+    alphabet = "abcdefghjkmnpqrstuvwxyz23456789"
+    letters = "".join(secrets.choice(alphabet) for _ in range(8))
+    return f"{letters[:4]}-{letters[4:]}"
+
+
 def lan_ip() -> str:
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe_socket:
@@ -47,9 +58,20 @@ def main() -> int:
     arg_parser.add_argument("--host", default="127.0.0.1")
     arg_parser.add_argument("--lan", action="store_true", help="shortcut for --host 0.0.0.0")
     arg_parser.add_argument("--port", type=int, default=8000)
+    arg_parser.add_argument("--password", default=None, help="password for other devices on the network")
+    arg_parser.add_argument("--no-password", action="store_true", help="don't ask other devices for a password")
     arg_parser.add_argument("--no-browser", action="store_true")
     args = arg_parser.parse_args()
     host = "0.0.0.0" if args.lan else args.host
+
+    # the password only matters when the server can be reached from other devices
+    reachable = host not in ("127.0.0.1", "localhost", "::1")
+    password = None if args.no_password else (args.password or os.environ.get("LIGHTBENCH_PASSWORD") or None)
+    if reachable and not args.no_password and not password:
+        password = make_password()
+    server_env = {key: value for key, value in os.environ.items() if key != "LIGHTBENCH_PASSWORD"}
+    if password:
+        server_env["LIGHTBENCH_PASSWORD"] = password        # through the environment so it never shows in a process list
 
     # Dev/Docker escape hatch: use the interpreter you launched with.
     if os.environ.get("LIGHTBENCH_USE_CURRENT_PYTHON"):
@@ -68,9 +90,12 @@ def main() -> int:
     port = free_port(host, args.port)
     local = f"http://127.0.0.1:{port}"
     print(f"\n  Lightbench running at {local}")
-    if host == "0.0.0.0":
+    if reachable:
         print(f"  On your network:    http://{lan_ip()}:{port}")
-        print("  (no password: only use --lan on a network you trust)")
+        if password:
+            print(f"  Password:           {password}   (asked on other devices, not on this computer)")
+        else:
+            print("  (no password: only do this on a network you fully trust)")
     print("  Press Ctrl+C to stop.\n")
 
     if not args.no_browser:
@@ -87,7 +112,7 @@ def main() -> int:
     try:
         return subprocess.call(
             [str(python_path), "-m", "uvicorn", "backend.main:app", "--host", host, "--port", str(port),
-             "--log-level", "warning"], cwd=ROOT)
+             "--log-level", "warning"], cwd=ROOT, env=server_env)
     except KeyboardInterrupt:
         return 0
 

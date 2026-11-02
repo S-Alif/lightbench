@@ -4,7 +4,7 @@ import Icon from '../icons/Icon.jsx'
 import { Badge } from '../ui/Badge.jsx'
 import { CardShell, Empty, Scrim } from './CardShell.jsx'
 
-// ---- a finished (or failed) file inside a job ----------------------------------
+// a finished (or failed) file inside a job
 export function ResultCard({ jobId, item, onOpen, onEdit }) {
 	const isDone = item.status === 'done'
 	const isWaiting = item.status === 'queued' || item.status === 'running'     // not finished yet, not an error

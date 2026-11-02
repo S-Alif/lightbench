@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
 from starlette.routing import Mount, Route
 
+from .api.auth import PasswordGate
 from .api.router import api_routes
 from .api.spa import SPAStaticFiles, index_missing
 from .config import STATIC_DIR
@@ -15,4 +17,4 @@ if (STATIC_DIR / "index.html").exists():
 else:
     routes.append(Route("/{path:path}", index_missing))
 
-app = Starlette(routes=routes)
+app = Starlette(routes=routes, middleware=[Middleware(PasswordGate)])

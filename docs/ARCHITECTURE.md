@@ -15,6 +15,7 @@
 | `config.py` | `DATA_DIR`, `JOBS_DIR`, `MODELS_DIR`, `FONT_DIR`, `STATIC_DIR` |
 | `api/router.py` | every url in one list |
 | `api/routes/` | `system`, `models`, `jobs`, `files`, one module per group of endpoints |
+| `api/auth.py` | password for other devices: `PasswordGate` middleware, login, logout, lockout after wrong guesses |
 | `api/deps.py` | the shared `JobManager` instance |
 | `api/helpers.py` | error responses, safe file names, local-request check, job lookup |
 | `api/spa.py` | static files with the index.html fallback for client side routes |
@@ -59,6 +60,8 @@ The optional form field `edits` on `POST /api/jobs` is a JSON list with one entr
 
 | Method | Url | Purpose |
 | --- | --- | --- |
+| GET | `/api/auth/status` | is a password needed, and has this browser entered it |
+| POST | `/api/auth/login`, `/api/auth/logout` | start or end a session (cookie) |
 | GET | `/api/system` | device, ffmpeg and folder info |
 | GET | `/api/system/usage` | live CPU, memory and GPU load for the resource monitor |
 | GET | `/api/models` | built-in and custom models |

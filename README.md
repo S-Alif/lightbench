@@ -74,7 +74,9 @@ The first run takes a few minutes and downloads PyTorch, which is large. Every l
 | Flag | What it does |
 | --- | --- |
 | `--port 8000` | pick a port (the next free one is used if it is taken) |
-| `--lan` | also listen on your network, handy for opening it from a phone. **No password**, see [Privacy and security](#privacy-and-security) |
+| `--lan` | also listen on your network, handy for opening it from a phone. Other devices must enter a password, which is printed in the terminal. See [Privacy and security](#privacy-and-security) |
+| `--password X` | use your own password for other devices instead of a random one (or set `LIGHTBENCH_PASSWORD`) |
+| `--no-password` | with `--lan`, ask for no password. Only on a network you fully trust |
 | `--no-browser` | do not open a browser tab |
 
 Other commands:
@@ -135,12 +137,13 @@ Drop any compatible Real-ESRGAN style `.pth` or `.pt` file into the `models/` fo
 
 ## Configuration
 
-The defaults are fine for most people. Two environment variables change where files go:
+The defaults are fine for most people. Environment variables change where files go and how the network is protected:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `LIGHTBENCH_DATA` | `./data` | where jobs, results and thumbnails are stored |
 | `LIGHTBENCH_MODELS` | `./models` | where model weights are stored |
+| `LIGHTBENCH_PASSWORD` | none | password asked from other devices on the network (`run.py --lan` sets one for you) |
 
 ```bash
 # example: keep everything on a bigger drive
@@ -188,7 +191,9 @@ Everything inside `data/` and every downloaded model stays out of git, see [`.gi
 
 - Everything runs locally. Files are processed on your computer and never sent to a third party
 - The only network traffic is the model download from GitHub and the one-time package install
-- **There is no login.** By default the server only listens on `127.0.0.1`, so only you can reach it. `--lan` opens it to everyone on your network, so only use it on a network you trust
+- By default the server only listens on `127.0.0.1`, so only you can reach it
+- With `--lan`, other devices must enter a password before they can use the app. A random one is made on every start and printed in the terminal, or you choose it with `--password`. This computer never asks. Wrong guesses are slowed down and an address is locked out for a few minutes after 5 of them
+- The connection is plain HTTP, so the password and your files can be read by someone who can watch traffic on that network. Use `--lan` only on a network you trust
 - "Open folder" only works from the computer that runs the app
 
 ## Tested on
@@ -202,7 +207,6 @@ The code is written to work on Windows, macOS and Linux. The CPU path, the API a
 - Basic editor: colour adjustments, straighten, metadata clean-up (crop and rotate are done)
 - Image watermarks (logos), not only text
 - More model families
-- Optional password for `--lan`
 
 Ideas and pull requests are welcome.
 

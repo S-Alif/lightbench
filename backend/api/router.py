@@ -3,12 +3,16 @@ from __future__ import annotations
 
 from starlette.routing import Route
 
+from .auth import auth_status, login, logout
 from .routes.files import item_file, item_thumb, job_zip
 from .routes.jobs import cancel_job, create_job, delete_job, edit_result, get_job, list_jobs, open_folder
 from .routes.models import list_models
 from .routes.system import system, usage
 
 api_routes = [
+    Route("/api/auth/status", auth_status),
+    Route("/api/auth/login", login, methods=["POST"]),
+    Route("/api/auth/logout", logout, methods=["POST"]),
     Route("/api/system", system),
     Route("/api/system/usage", usage),
     Route("/api/models", list_models),
