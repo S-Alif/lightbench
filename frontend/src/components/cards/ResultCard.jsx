@@ -4,9 +4,10 @@ import Icon from '../icons/Icon.jsx'
 import { Badge } from '../ui/Badge.jsx'
 import { CardShell, Empty, Scrim } from './CardShell.jsx'
 
-// a finished (or failed) file inside a job
+// ---- a finished (or failed) file inside a job ----------------------------------
 export function ResultCard({ jobId, item, onOpen, onEdit }) {
 	const isDone = item.status === 'done'
+	const isWaiting = item.status === 'queued' || item.status === 'running'     // not finished yet, not an error
 	return (
 		<CardShell onClick={isDone ? onOpen : undefined} label={isDone ? `View ${item.out_name}` : undefined}>
 			{isDone && item.thumb ? <img src={api.thumbUrl(jobId, item.id)} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" /> : <Empty kind={item.kind} />}
@@ -16,7 +17,8 @@ export function ResultCard({ jobId, item, onOpen, onEdit }) {
 					<Icon name={item.kind} className="size-3.5" />
 					{item.kind === 'image' ? 'Image' : 'Video'}
 				</Badge>
-				{!isDone && <Badge tone="bad">{item.status === 'cancelled' ? 'Cancelled' : 'Failed'}</Badge>}
+				{isWaiting && <Badge tone="accent">{item.status === 'running' ? 'Processing' : 'Waiting'}</Badge>}
+				{!isDone && !isWaiting && <Badge tone="bad">{item.status === 'cancelled' ? 'Cancelled' : 'Failed'}</Badge>}
 			</div>
 			{isDone && (
 				<a 
@@ -49,7 +51,9 @@ export function ResultCard({ jobId, item, onOpen, onEdit }) {
 				<p className="truncate text-sm font-semibold" title={item.out_name || item.name}>{item.out_name || item.name}</p>
 				{isDone
 					? <p className="tnum truncate text-xs text-white/75">{item.w && `${item.w}×${item.h} · `}{fmtBytes(item.size)}{item.kind === 'video' && item.duration ? ` · ${fmtClock(item.duration)}` : ''}</p>
-					: <p className="line-clamp-2 text-xs text-red-200" title={item.error}>{item.error || item.message}</p>}
+					: isWaiting
+						? <p className="tnum truncate text-xs text-white/75">{item.status === 'running' ? `${Math.round((item.progress || 0) * 100)}%` : 'Waiting in the queue'}</p>
+						: <p className="line-clamp-2 text-xs text-red-200" title={item.error}>{item.error || item.message}</p>}
 			</div>
 		</CardShell>
 	)
