@@ -19,24 +19,18 @@ No accounts, no cloud, nothing leaves your machine.
 
 ## Contents
 
-- [Lightbench](#lightbench)
-  - [Contents](#contents)
-  - [Features](#features)
-  - [Quick start](#quick-start)
-    - [Options](#options)
-    - [Developing the frontend](#developing-the-frontend)
-  - [Hardware](#hardware)
-  - [Models](#models)
-  - [Using your own models](#using-your-own-models)
-  - [Configuration](#configuration)
-  - [Project layout](#project-layout)
-  - [Privacy and security](#privacy-and-security)
-  - [Tested on](#tested-on)
-  - [Roadmap](#roadmap)
-  - [Credits](#credits)
-    - [Models](#models-1)
-    - [Libraries](#libraries)
-  - [License](#license)
+- [Features](#features)
+- [Quick start](#quick-start)
+- [Hardware](#hardware)
+- [Models](#models)
+- [Using your own models](#using-your-own-models)
+- [Configuration](#configuration)
+- [Project layout](#project-layout)
+- [Privacy and security](#privacy-and-security)
+- [Tested on](#tested-on)
+- [Roadmap](#roadmap)
+- [Credits](#credits)
+- [License](#license)
 
 ## Features
 
@@ -47,7 +41,8 @@ No accounts, no cloud, nothing leaves your machine.
 - **Text watermark** with nine positions, colour, opacity, and a size that is either a percentage of the image or fixed pixels
 - **Life-sized watermark preview** that copies the aspect ratio of your first file, so what you place is what you get
 - **Images:** JPG, PNG, WebP. **Videos:** H.264 MP4 with the original audio kept
-- **Batch processing** with a live progress overlay: percentage, file counter, elapsed time and ETA
+- **Batch processing** with live progress on every file card and a summary above them: percentage, file counter, elapsed time and ETA
+- **Resource monitor** while a job runs: CPU, memory and GPU memory
 - **History:** every job is stored on disk. Come back later, view the results and download them one by one or as a `.zip`
 - **Safe deletes:** removing a job shows the folder it lives in and asks for confirmation
 - **One kind per job:** a job is all images or all videos, never mixed
@@ -73,9 +68,6 @@ That is all. The first launch sets everything up on its own:
 5. starts the server and opens your browser
 
 The first run takes a few minutes and downloads PyTorch, which is large. Every launch after that starts in seconds.
-
-> **[NOTE]**: I am developing this as a solo project and I am not taking any pull requests. But any suggestions and ideas are welcomed
-
 
 ### Options
 

@@ -6,10 +6,11 @@ from starlette.routing import Route
 from .routes.files import item_file, item_thumb, job_zip
 from .routes.jobs import cancel_job, create_job, delete_job, edit_result, get_job, list_jobs, open_folder
 from .routes.models import list_models
-from .routes.system import system
+from .routes.system import system, usage
 
 api_routes = [
     Route("/api/system", system),
+    Route("/api/system/usage", usage),
     Route("/api/models", list_models),
     Route("/api/jobs", list_jobs),
     Route("/api/jobs", create_job, methods=["POST"]),

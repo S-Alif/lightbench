@@ -7,6 +7,12 @@ from ...config import DATA_DIR, MODELS_DIR
 from ..helpers import is_local_request
 
 
+async def usage(request):
+    """live cpu / memory / gpu load for the resource monitor."""
+    from ...core.usage import read_usage
+    return JSONResponse(read_usage())
+
+
 async def system(request):
     from ...core.media import video
     info: dict = {"ffmpeg": video.ffmpeg_available(), "data_dir": str(DATA_DIR.resolve()),

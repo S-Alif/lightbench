@@ -20,6 +20,7 @@
 | `api/spa.py` | static files with the index.html fallback for client side routes |
 | `services/jobs/models.py` | `Item` and `Job`, and how they are saved to `job.json` |
 | `services/jobs/manager.py` | `JobManager`: one worker thread, history loading, cancel, delete |
+| `core/usage.py` | live CPU, memory and GPU numbers (psutil, plus torch for the GPU) |
 | `core/pipeline.py` | `JobOptions`, then upscale -> watermark -> save for an image or a video |
 | `core/upscaler.py` | `Upscaler`: tiled inference with out-of-memory retry |
 | `core/models/registry.py` | built-in model catalog, download, architecture detection (no torch) |
@@ -38,7 +39,7 @@
 | `components/ui/` | buttons, badges, modal, toast, form fields |
 | `components/cards/` | `CardShell`, `PickedCard`, `ResultCard`, `JobCard` |
 | `components/layout/` | `Device`, `Banner` |
-| `components/jobs/` | progress `Overlay`, `DeleteDialog` |
+| `components/jobs/` | `RunPanel` (progress above the file cards), `ResourceMonitor`, `DeleteDialog` |
 | `features/editor/` | `CropEditor` (opened from a picked image's "Crop / rotate" button), `cropPresets.js`, `editMath.js` |
 | `features/settings/` | settings panel, defaults, controls, watermark preview |
 | `pages/` | `NewJobPage`, `HistoryPage`, `JobDetailPage` |
@@ -59,6 +60,7 @@ The optional form field `edits` on `POST /api/jobs` is a JSON list with one entr
 | Method | Url | Purpose |
 | --- | --- | --- |
 | GET | `/api/system` | device, ffmpeg and folder info |
+| GET | `/api/system/usage` | live CPU, memory and GPU load for the resource monitor |
 | GET | `/api/models` | built-in and custom models |
 | GET, POST | `/api/jobs` | list jobs, create a job |
 | GET, DELETE | `/api/jobs/{id}` | one job, delete a job |
