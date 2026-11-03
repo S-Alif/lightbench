@@ -36,7 +36,7 @@ function Viewer({ job, items, index, onIndex, onClose, onEdit }) {
 				</div>
 
 				{item.kind === 'image' && (
-					<button type="button" onClick={() => onEdit(item)} className={btn('secondary', 'sm')}><Icon name="crop" className="size-4" />Crop / rotate</button>
+					<button type="button" onClick={() => onEdit(item)} className={btn('secondary', 'sm')}><Icon name="crop" className="size-4" />Edit</button>
 				)}
 
 				{/* download button */}

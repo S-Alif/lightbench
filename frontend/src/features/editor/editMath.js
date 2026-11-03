@@ -1,4 +1,4 @@
-// crop and rotate maths
+// ---- crop and rotate maths ------------------------------------------------
 // all crop numbers are fractions (0 to 1) of the rotated image, the same
 // convention the backend uses, so the preview and the output always agree.
 
@@ -12,11 +12,20 @@ export const turn = (rotate, direction) => (rotate + (direction > 0 ? 90 : 270))
 export const isFullCrop = (crop) => crop.x < 1e-6 && crop.y < 1e-6 && crop.width > 1 - 1e-6 && crop.height > 1 - 1e-6
 
 // the edit object sent to the server, or null when nothing changes
-export function toEdit(rotate, crop) {
+export function toEdit(rotate, flip, crop) {
 	const full = isFullCrop(crop)
-	if (rotate === 0 && full) return null
-	return { rotate, crop: full ? null : { ...crop } }
+	if (rotate === 0 && !flip && full) return null
+	return { flip, rotate, crop: full ? null : { ...crop } }
 }
+
+// the stored edit is "mirror left to right, then turn clockwise", but people flip what they see.
+// mirroring the view reverses the turn, and a top to bottom mirror is a left to right one plus half a turn.
+export const rotationAfterFlip = (rotate, vertical) => ((vertical ? 540 : 360) - rotate) % 360
+
+// the crop box follows the picture when it is mirrored
+export const mirrorCrop = (crop, vertical) => (vertical
+	? { ...crop, y: 1 - crop.y - crop.height }
+	: { ...crop, x: 1 - crop.x - crop.width })
 
 // size in pixels after applying an edit to an image of the given size
 export function editedSize(width, height, edit) {

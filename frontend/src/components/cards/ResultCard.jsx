@@ -4,7 +4,7 @@ import Icon from '../icons/Icon.jsx'
 import { Badge } from '../ui/Badge.jsx'
 import { CardShell, Empty, Scrim } from './CardShell.jsx'
 
-// a finished (or failed) file inside a job
+// ---- a finished (or failed) file inside a job ----------------------------------
 export function ResultCard({ jobId, item, onOpen, onEdit }) {
 	const isDone = item.status === 'done'
 	const isWaiting = item.status === 'queued' || item.status === 'running'     // not finished yet, not an error
@@ -34,10 +34,10 @@ export function ResultCard({ jobId, item, onOpen, onEdit }) {
 				<button
 					type="button"
 					onClick={(event) => { event.stopPropagation(); onEdit() }}
-					aria-label={`Crop or rotate ${item.out_name}`}
+					aria-label={`Edit ${item.out_name}`}
 					className="absolute bottom-3 right-3 z-10 inline-flex h-8 items-center gap-1.5 rounded-full bg-black/60 px-3 text-xs font-medium text-white backdrop-blur transition hover:bg-accent"
 				>
-					<Icon name="crop" className="size-3.5" />Crop / rotate
+					<Icon name="crop" className="size-3.5" />Edit
 				</button>
 			)}
 			{item.kind === 'video' && isDone && (

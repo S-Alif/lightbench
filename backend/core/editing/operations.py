@@ -1,11 +1,13 @@
-"""crop and rotate for images, applied before upscaling.
+"""flip, rotate and crop for images, applied before upscaling.
 
 An edit is a small dict, the same shape the frontend sends and job.json stores:
 
-    {"rotate": 90, "crop": {"x": 0.1, "y": 0.2, "width": 0.5, "height": 0.6}}
+    {"flip": true, "rotate": 90, "crop": {"x": 0.1, "y": 0.2, "width": 0.5, "height": 0.6}}
 
-rotate is clockwise degrees (0, 90, 180 or 270), applied first.
-crop is a box in fractions (0..1) of the rotated image, so the preview in the
+flip mirrors the image left to right, applied first. (a top to bottom mirror is the same as
+flip plus a 180 degree turn, so one flag is enough.)
+rotate is clockwise degrees (0, 90, 180 or 270), applied second.
+crop is a box in fractions (0..1) of the flipped and rotated image, so the preview in the
 browser and the real image agree no matter what size the file is.
 """
 from __future__ import annotations
@@ -26,6 +28,7 @@ def validate_edit(edit: Optional[dict]) -> Optional[dict]:
     if not isinstance(edit, dict):
         raise ValueError("An edit must be an object")
 
+    flip = bool(edit.get("flip"))
     rotate = int(edit.get("rotate") or 0) % 360
     if rotate not in ROTATIONS:
         raise ValueError("rotate must be 0, 90, 180 or 270")
@@ -47,9 +50,13 @@ def validate_edit(edit: Optional[dict]) -> Optional[dict]:
         if covers_everything:
             crop = None
 
-    if rotate == 0 and crop is None:
+    if not flip and rotate == 0 and crop is None:
         return None
-    return {"rotate": rotate, "crop": crop}
+    return {"flip": flip, "rotate": rotate, "crop": crop}
+
+
+def flip_horizontal(rgb: np.ndarray) -> np.ndarray:
+    return rgb[:, ::-1]
 
 
 def rotate_clockwise(rgb: np.ndarray, degrees: int) -> np.ndarray:
@@ -67,10 +74,12 @@ def crop_box(rgb: np.ndarray, crop: dict) -> np.ndarray:
 
 
 def apply_edit(rgb: np.ndarray, edit: Optional[dict]) -> np.ndarray:
-    """rotate first, then crop. returns a new contiguous array."""
+    """flip, then rotate, then crop. returns a new contiguous array."""
     edit = validate_edit(edit)
     if edit is None:
         return rgb
+    if edit["flip"]:
+        rgb = flip_horizontal(rgb)
     if edit["rotate"]:
         rgb = rotate_clockwise(rgb, edit["rotate"])
     if edit["crop"]:

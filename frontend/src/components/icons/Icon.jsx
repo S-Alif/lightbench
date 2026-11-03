@@ -19,6 +19,8 @@ const ICON_PATHS = {
 	alert: <><path d="M12 4 2.5 20h19z" /><path d="M12 10v4m0 3v.01" /></>,
 	chip: <><rect x="6" y="6" width="12" height="12" rx="2" /><path d="M9 2v4m6-4v4M9 18v4m6-4v4M2 9h4m-4 6h4m12-6h4m-4 6h4" /></>,
 	crop: <><path d="M6 2v14a2 2 0 0 0 2 2h14" /><path d="M2 6h14a2 2 0 0 1 2 2v14" /></>,
+	flipH: <><path d="M12 3v18" strokeDasharray="2 3" /><path d="M8 7 3 12l5 5z" /><path d="m16 7 5 5-5 5z" /></>,
+	flipV: <><path d="M3 12h18" strokeDasharray="2 3" /><path d="M7 8l5-5 5 5z" /><path d="m7 16 5 5 5-5z" /></>,
 	rotateLeft: <><path d="M4 4v5h5" /><path d="M4.5 9A8 8 0 1 1 4 13" /></>,
 	rotateRight: <><path d="M20 4v5h-5" /><path d="M19.5 9A8 8 0 1 0 20 13" /></>,
 	plus: <path d="M12 5v14M5 12h14" />,

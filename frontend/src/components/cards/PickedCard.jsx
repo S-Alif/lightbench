@@ -32,10 +32,10 @@ export function PickedCard({ pickedFile, edited, onEdit, onRemove, state = null 
 				<button
 					type="button"
 					onClick={onEdit}
-					aria-label={`Crop or rotate ${pickedFile.file.name}`}
+					aria-label={`Edit ${pickedFile.file.name}`}
 					className="absolute bottom-3 right-3 z-10 inline-flex h-8 items-center gap-1.5 rounded-full bg-black/60 px-3 text-xs font-medium text-white backdrop-blur transition hover:bg-accent"
 				>
-					<Icon name="crop" className="size-3.5" />Crop / rotate
+					<Icon name="crop" className="size-3.5" />Edit
 				</button>
 			)}
 			{!state && <button 

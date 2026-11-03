@@ -77,5 +77,29 @@ class ValidationTests(unittest.TestCase):
         self.assertIs(apply_edit(image, None), image)
 
 
+class FlipTests(unittest.TestCase):
+    def test_flip_mirrors_left_to_right(self):
+        image = sample_image()
+        flipped = apply_edit(image, {"flip": True})
+        self.assertEqual(flipped.shape, image.shape)
+        self.assertEqual(tuple(flipped[0, 0]), tuple(image[0, -1]))
+        self.assertEqual(tuple(flipped[3, -1]), tuple(image[3, 0]))
+
+    def test_flip_happens_before_rotate(self):
+        image = sample_image()
+        both = apply_edit(image, {"flip": True, "rotate": 90})
+        by_hand = apply_edit(apply_edit(image, {"flip": True}), {"rotate": 90})
+        self.assertTrue(np.array_equal(both, by_hand))
+
+    def test_top_to_bottom_is_flip_plus_half_turn(self):
+        image = sample_image()
+        upside_down = apply_edit(image, {"flip": True, "rotate": 180})
+        self.assertTrue(np.array_equal(upside_down, image[::-1]))
+
+    def test_flip_alone_is_a_real_edit_and_default_is_not(self):
+        self.assertEqual(validate_edit({"flip": True})["flip"], True)
+        self.assertIsNone(validate_edit({"flip": False, "rotate": 0, "crop": None}))
+
+
 if __name__ == "__main__":
     unittest.main()

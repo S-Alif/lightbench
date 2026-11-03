@@ -3,7 +3,7 @@ import Icon from '../../components/icons/Icon.jsx'
 import { btn } from '../../components/ui/buttonStyles.js'
 import { Modal } from '../../components/ui/Modal.jsx'
 import { RATIO_PRESETS, platformName, ratioLabel } from './cropPresets.js'
-import { FULL_CROP, fitRatio, moveCrop, resizeCrop, rotatedSize, toEdit, turn } from './editMath.js'
+import { FULL_CROP, fitRatio, mirrorCrop, moveCrop, resizeCrop, rotatedSize, rotationAfterFlip, toEdit, turn } from './editMath.js'
 
 // where each resize handle sits on the crop box, as percentages
 const HANDLES = {
@@ -13,10 +13,11 @@ const HANDLES = {
 }
 const CURSORS = { nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize', n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize' }
 
-// the basic editor: rotate and crop one image
+// ---- the basic editor: rotate and crop one image ---------------------------
 export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'Apply', note = '' }) {
 	const [naturalSize, setNaturalSize] = useState(null)
 	const [rotate, setRotate] = useState(edit?.rotate || 0)
+	const [flip, setFlip] = useState(Boolean(edit?.flip))      // mirrored left to right before the turn
 	const [crop, setCrop] = useState(edit?.crop || FULL_CROP)
 	const [presetId, setPresetId] = useState('free')      // 'free' is free roam
 	const [swapped, setSwapped] = useState(false)
@@ -60,9 +61,21 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 		refit(swapped ? { width: base.height, height: base.width } : { width: base.width, height: base.height }, nextTurned)
 	}
 
-	const reset = () => { setRotate(0); setCrop(FULL_CROP); setPresetId('free'); setSwapped(false) }
+	const flipView = (vertical) => {
+		setRotate(rotationAfterFlip(rotate, vertical))
+		setFlip(!flip)
+		setCrop(mirrorCrop(crop, vertical))
+	}
 
-	// dragging
+	const reset = () => { 
+		setRotate(0); 
+		setFlip(false)
+		setCrop(FULL_CROP)
+		setPresetId('free')
+		setSwapped(false) 
+	}
+
+	// ---- dragging ----
 	const pointerFraction = (pointerEvent) => {
 		const box = stageRef.current.getBoundingClientRect()
 		return { x: (pointerEvent.clientX - box.left) / box.width, y: (pointerEvent.clientY - box.top) / box.height }
@@ -88,14 +101,16 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 	const visibleHandles = Object.keys(HANDLES).filter((name) => !ratio || name.length === 2)
 
 	return (
-		<Modal open onClose={onClose} label="Edit image" size="xl">
+		<Modal open onClose={onClose} label="Basic editor" size="xl">
 			<div className="p-5 sm:p-6">
 				<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
 					<div className="min-w-0">
-						<h2 className="text-lg font-semibold">Crop and rotate</h2>
+						<h2 className="text-lg font-semibold">Basic editor</h2>
 						<p className="truncate text-sm text-muted" title={pickedFile.file.name}>{pickedFile.file.name}</p>
 					</div>
 					<div className="flex items-center gap-2">
+						<button type="button" className={btn('secondary', 'sm')} onClick={() => flipView(false)} disabled={!turned} aria-label="Flip horizontally"><Icon name="flipH" className="size-4" />Flip</button>
+						<button type="button" className={btn('secondary', 'sm')} onClick={() => flipView(true)} disabled={!turned} aria-label="Flip vertically"><Icon name="flipV" className="size-4" />Flip</button>
 						<button type="button" className={btn('secondary', 'sm')} onClick={() => rotateBy(-1)} disabled={!turned} aria-label="Rotate left"><Icon name="rotateLeft" className="size-4" />Left</button>
 						<button type="button" className={btn('secondary', 'sm')} onClick={() => rotateBy(1)} disabled={!turned} aria-label="Rotate right"><Icon name="rotateRight" className="size-4" />Right</button>
 					</div>
@@ -118,7 +133,7 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 								style={{
 									width: rotate % 180 === 0 ? '100%' : `${(turned.height / turned.width) * 100}%`,
 									height: rotate % 180 === 0 ? '100%' : `${(turned.width / turned.height) * 100}%`,
-									transform: `translate(-50%, -50%) rotate(${rotate}deg)`,
+									transform: `translate(-50%, -50%) rotate(${rotate}deg) scaleX(${flip ? -1 : 1})`,
 								}}
 							/>
 							<div
@@ -174,7 +189,7 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 					<div className="flex items-center gap-2">
 						<button type="button" className={btn('ghost', 'md')} onClick={reset} disabled={!turned}>Reset</button>
 						<button type="button" className={btn('secondary', 'md')} onClick={onClose}>Cancel</button>
-						<button type="button" className={btn('primary', 'md')} disabled={!turned} onClick={() => onApply(toEdit(rotate, crop))}>{applyLabel}</button>
+						<button type="button" className={btn('primary', 'md')} disabled={!turned} onClick={() => onApply(toEdit(rotate, flip, crop))}>{applyLabel}</button>
 					</div>
 				</div>
 			</div>
