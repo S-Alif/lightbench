@@ -101,5 +101,42 @@ class FlipTests(unittest.TestCase):
         self.assertIsNone(validate_edit({"flip": False, "rotate": 0, "crop": None}))
 
 
+class StraightenTests(unittest.TestCase):
+    def test_size_matches_the_formula_and_shrinks_with_angle(self):
+        from backend.core.editing.operations import straightened_size
+        self.assertEqual(straightened_size(1000, 600, 0), (1000, 600))
+        wide, tall = straightened_size(1000, 600, 5)
+        self.assertLess(wide, 1000)
+        self.assertAlmostEqual(wide / tall, 1000 / 600, places=1)      # same shape as the original
+        self.assertLess(straightened_size(1000, 600, 20)[0], wide)
+        self.assertEqual(straightened_size(1000, 600, -5), (wide, tall))
+
+    def test_no_empty_corners_are_left(self):
+        for angle in (0.5, 3, 10, -10, 25, 45):
+            for shape in ((400, 300), (300, 400), (500, 500)):
+                white = np.full((shape[1], shape[0], 3), 255, np.uint8)
+                out = apply_edit(white, {"straighten": angle})
+                self.assertEqual(out.min(), 255, f"black corner at {angle} degrees on {shape}")
+
+    def test_positive_angle_turns_clockwise(self):
+        image = np.zeros((101, 101, 3), np.uint8)
+        image[50, 90:100] = 255                         # a mark to the right of the centre
+        out = apply_edit(image, {"straighten": 20})
+        rows, cols = np.nonzero(out[:, :, 0] > 128)
+        self.assertGreater(rows.mean(), out.shape[0] / 2)   # moved down: clockwise on screen
+
+    def test_validation(self):
+        self.assertIsNone(validate_edit({"straighten": 0.04}))      # rounds to nothing
+        self.assertEqual(validate_edit({"straighten": 2.26})["straighten"], 2.3)
+        with self.assertRaises(ValueError):
+            validate_edit({"straighten": 50})
+
+    def test_straighten_comes_before_crop(self):
+        image = sample_image(200, 100)
+        both = apply_edit(image, {"straighten": 5, "crop": {"x": 0, "y": 0, "width": 0.5, "height": 0.5}})
+        straightened = apply_edit(image, {"straighten": 5})
+        self.assertEqual(both.shape[1], round(straightened.shape[1] * 0.5))
+
+
 if __name__ == "__main__":
     unittest.main()

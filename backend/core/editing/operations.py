@@ -1,22 +1,28 @@
-"""flip, rotate and crop for images, applied before upscaling.
+"""flip, rotate, straighten and crop for images, applied before upscaling.
 
 An edit is a small dict, the same shape the frontend sends and job.json stores:
 
-    {"flip": true, "rotate": 90, "crop": {"x": 0.1, "y": 0.2, "width": 0.5, "height": 0.6}}
+    {"flip": true, "rotate": 90, "straighten": -2.5, "crop": {"x": 0.1, "y": 0.2, "width": 0.5, "height": 0.6}}
 
 flip mirrors the image left to right, applied first. (a top to bottom mirror is the same as
 flip plus a 180 degree turn, so one flag is enough.)
 rotate is clockwise degrees (0, 90, 180 or 270), applied second.
-crop is a box in fractions (0..1) of the flipped and rotated image, so the preview in the
+straighten is a small extra turn in clockwise degrees (-45 to 45) to level a tilted horizon. The
+image is then cut to the biggest rectangle of the same shape that has no empty corners, applied third.
+crop is a box in fractions (0..1) of the flipped, rotated and straightened image, so the preview in the
 browser and the real image agree no matter what size the file is.
 """
 from __future__ import annotations
 
 from typing import Optional
 
+import math
+
 import numpy as np
+from PIL import Image
 
 ROTATIONS = (0, 90, 180, 270)
+MAX_STRAIGHTEN = 45.0
 CROP_KEYS = ("x", "y", "width", "height")
 EPSILON = 1e-6
 
@@ -32,6 +38,10 @@ def validate_edit(edit: Optional[dict]) -> Optional[dict]:
     rotate = int(edit.get("rotate") or 0) % 360
     if rotate not in ROTATIONS:
         raise ValueError("rotate must be 0, 90, 180 or 270")
+
+    straighten = round(float(edit.get("straighten") or 0), 1)
+    if abs(straighten) > MAX_STRAIGHTEN:
+        raise ValueError(f"straighten must be between -{MAX_STRAIGHTEN:g} and {MAX_STRAIGHTEN:g} degrees")
 
     crop = edit.get("crop")
     if crop is not None:
@@ -50,9 +60,9 @@ def validate_edit(edit: Optional[dict]) -> Optional[dict]:
         if covers_everything:
             crop = None
 
-    if not flip and rotate == 0 and crop is None:
+    if not flip and rotate == 0 and straighten == 0 and crop is None:
         return None
-    return {"flip": flip, "rotate": rotate, "crop": crop}
+    return {"flip": flip, "rotate": rotate, "straighten": straighten, "crop": crop}
 
 
 def flip_horizontal(rgb: np.ndarray) -> np.ndarray:
@@ -62,6 +72,25 @@ def flip_horizontal(rgb: np.ndarray) -> np.ndarray:
 def rotate_clockwise(rgb: np.ndarray, degrees: int) -> np.ndarray:
     # np.rot90 turns counter-clockwise, so a clockwise turn is a negative count
     return np.rot90(rgb, k=-(degrees // 90))
+
+
+def straightened_size(width: int, height: int, degrees: float) -> tuple[int, int]:
+    """size of the biggest same-shaped rectangle that fits inside the image after turning it by degrees."""
+    angle = math.radians(abs(degrees))
+    longer_over_shorter = max(width, height) / min(width, height)
+    scale = 1 / (math.cos(angle) + math.sin(angle) * longer_over_shorter)
+    return max(1, math.floor(width * scale)), max(1, math.floor(height * scale))
+
+
+def straighten(rgb: np.ndarray, degrees: float) -> np.ndarray:
+    """turn clockwise by degrees around the centre, then keep the middle part that has no empty corners."""
+    height, width = rgb.shape[:2]
+    keep_width, keep_height = straightened_size(width, height, degrees)
+    # PIL turns counter-clockwise, so a clockwise turn is a negative angle
+    turned = np.asarray(Image.fromarray(rgb).rotate(-degrees, resample=Image.BICUBIC, expand=False))
+    left = (width - keep_width) // 2
+    top = (height - keep_height) // 2
+    return turned[top:top + keep_height, left:left + keep_width]
 
 
 def crop_box(rgb: np.ndarray, crop: dict) -> np.ndarray:
@@ -74,7 +103,7 @@ def crop_box(rgb: np.ndarray, crop: dict) -> np.ndarray:
 
 
 def apply_edit(rgb: np.ndarray, edit: Optional[dict]) -> np.ndarray:
-    """flip, then rotate, then crop. returns a new contiguous array."""
+    """flip, rotate, straighten, then crop. returns a new contiguous array."""
     edit = validate_edit(edit)
     if edit is None:
         return rgb
@@ -82,6 +111,8 @@ def apply_edit(rgb: np.ndarray, edit: Optional[dict]) -> np.ndarray:
         rgb = flip_horizontal(rgb)
     if edit["rotate"]:
         rgb = rotate_clockwise(rgb, edit["rotate"])
+    if edit["straighten"]:
+        rgb = straighten(rgb, edit["straighten"])
     if edit["crop"]:
         rgb = crop_box(rgb, edit["crop"])
     return np.ascontiguousarray(rgb)
