@@ -7,15 +7,31 @@ const MIN_SIDE_PIXELS = 16
 
 export const rotatedSize = (width, height, rotate) => (rotate % 180 === 0 ? { width, height } : { width: height, height: width })
 
+export const MAX_STRAIGHTEN = 45
+
+// after turning an image by a small angle, the biggest same-shaped rectangle without empty corners.
+// scale is how much smaller that rectangle is than the image (same formula as the backend).
+export function straightenScale(width, height, degrees) {
+	const angle = (Math.abs(degrees) * Math.PI) / 180
+	const longerOverShorter = Math.max(width, height) / Math.min(width, height)
+	return 1 / (Math.cos(angle) + Math.sin(angle) * longerOverShorter)
+}
+
+export function straightenedSize(width, height, degrees) {
+	if (!degrees) return { width, height }
+	const scale = straightenScale(width, height, degrees)
+	return { width: Math.max(1, Math.floor(width * scale)), height: Math.max(1, Math.floor(height * scale)) }
+}
+
 export const turn = (rotate, direction) => (rotate + (direction > 0 ? 90 : 270)) % 360
 
 export const isFullCrop = (crop) => crop.x < 1e-6 && crop.y < 1e-6 && crop.width > 1 - 1e-6 && crop.height > 1 - 1e-6
 
 // the edit object sent to the server, or null when nothing changes
-export function toEdit(rotate, flip, crop) {
+export function toEdit(rotate, flip, straighten, crop) {
 	const full = isFullCrop(crop)
-	if (rotate === 0 && !flip && full) return null
-	return { flip, rotate, crop: full ? null : { ...crop } }
+	if (rotate === 0 && !flip && !straighten && full) return null
+	return { flip, rotate, straighten, crop: full ? null : { ...crop } }
 }
 
 // the stored edit is "mirror left to right, then turn clockwise", but people flip what they see.
@@ -30,7 +46,7 @@ export const mirrorCrop = (crop, vertical) => (vertical
 // size in pixels after applying an edit to an image of the given size
 export function editedSize(width, height, edit) {
 	if (!edit) return { width, height }
-	const turned = rotatedSize(width, height, edit.rotate)
+	const turned = straightenedSize(...Object.values(rotatedSize(width, height, edit.rotate)), edit.straighten || 0)
 	if (!edit.crop) return turned
 	return {
 		width: Math.max(1, Math.round(edit.crop.width * turned.width)),

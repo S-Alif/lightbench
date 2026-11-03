@@ -3,7 +3,7 @@ import Icon from '../../components/icons/Icon.jsx'
 import { btn } from '../../components/ui/buttonStyles.js'
 import { Modal } from '../../components/ui/Modal.jsx'
 import { RATIO_PRESETS, platformName, ratioLabel } from './cropPresets.js'
-import { FULL_CROP, fitRatio, mirrorCrop, moveCrop, resizeCrop, rotatedSize, rotationAfterFlip, toEdit, turn } from './editMath.js'
+import { FULL_CROP, MAX_STRAIGHTEN, fitRatio, mirrorCrop, moveCrop, resizeCrop, rotatedSize, rotationAfterFlip, straightenScale, straightenedSize, toEdit, turn } from './editMath.js'
 
 // where each resize handle sits on the crop box, as percentages
 const HANDLES = {
@@ -17,6 +17,7 @@ const CURSORS = { nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: '
 export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'Apply', note = '' }) {
 	const [naturalSize, setNaturalSize] = useState(null)
 	const [rotate, setRotate] = useState(edit?.rotate || 0)
+	const [straighten, setStraighten] = useState(edit?.straighten || 0)   // small extra turn in degrees, clockwise
 	const [flip, setFlip] = useState(Boolean(edit?.flip))      // mirrored left to right before the turn
 	const [crop, setCrop] = useState(edit?.crop || FULL_CROP)
 	const [presetId, setPresetId] = useState('free')      // 'free' is free roam
@@ -24,7 +25,9 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 	const stageRef = useRef(null)
 	const drag = useRef(null)
 
-	const turned = naturalSize ? rotatedSize(naturalSize.width, naturalSize.height, rotate) : null
+	const rotated = naturalSize ? rotatedSize(naturalSize.width, naturalSize.height, rotate) : null
+	// the picture the crop box lives on: turned, then straightened (same shape, fewer pixels)
+	const turned = rotated ? straightenedSize(rotated.width, rotated.height, straighten) : null
 
 	// the fixed shape being kept, or null for free roam
 	const ratio = useMemo(() => {
@@ -52,10 +55,14 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 
 	const rotateBy = (direction) => {
 		const nextRotate = turn(rotate, direction)
-		const nextTurned = rotatedSize(naturalSize.width, naturalSize.height, nextRotate)
+		const nextRotated = rotatedSize(naturalSize.width, naturalSize.height, nextRotate)
+		const nextTurned = straightenedSize(nextRotated.width, nextRotated.height, straighten)
 		setRotate(nextRotate)
 		// a crop made before turning no longer lines up, so start it again
-		if (presetId === 'free') { setCrop(FULL_CROP); return }
+		if (presetId === 'free') { 
+			setCrop(FULL_CROP)
+			return 
+		}
 		const preset = RATIO_PRESETS.find((candidate) => candidate.id === presetId)
 		const base = preset.ratio === 'original' ? nextTurned : preset
 		refit(swapped ? { width: base.height, height: base.width } : { width: base.width, height: base.height }, nextTurned)
@@ -68,8 +75,9 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 	}
 
 	const reset = () => { 
-		setRotate(0); 
+		setRotate(0)
 		setFlip(false)
+		setStraighten(0)
 		setCrop(FULL_CROP)
 		setPresetId('free')
 		setSwapped(false) 
@@ -123,7 +131,7 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 						<div
 							ref={stageRef}
 							className="relative touch-none select-none overflow-hidden"
-							style={{ aspectRatio: `${turned.width} / ${turned.height}`, width: `min(100%, calc(60vh * ${turned.width / turned.height}))` }}
+							style={{ aspectRatio: `${rotated.width} / ${rotated.height}`, width: `min(100%, calc(60vh * ${rotated.width / rotated.height}))` }}
 						>
 							<img
 								src={pickedFile.url}
@@ -131,9 +139,10 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 								draggable={false}
 								className="pointer-events-none absolute left-1/2 top-1/2 max-w-none"
 								style={{
-									width: rotate % 180 === 0 ? '100%' : `${(turned.height / turned.width) * 100}%`,
-									height: rotate % 180 === 0 ? '100%' : `${(turned.width / turned.height) * 100}%`,
-									transform: `translate(-50%, -50%) rotate(${rotate}deg) scaleX(${flip ? -1 : 1})`,
+									width: rotate % 180 === 0 ? '100%' : `${(rotated.height / rotated.width) * 100}%`,
+									height: rotate % 180 === 0 ? '100%' : `${(rotated.width / rotated.height) * 100}%`,
+									// the box shows the biggest empty-corner-free part, so the picture is drawn larger than the box
+									transform: `translate(-50%, -50%) rotate(${straighten}deg) scale(${1 / straightenScale(rotated.width, rotated.height, straighten)}) rotate(${rotate}deg) scaleX(${flip ? -1 : 1})`,
 								}}
 							/>
 							<div
@@ -168,6 +177,24 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 					)}
 				</div>
 
+				<div className="mt-4 flex items-center gap-3">
+					<label htmlFor="straighten-angle" className="w-24 shrink-0 text-sm font-medium">Straighten</label>
+					<input
+						id="straighten-angle"
+						type="range"
+						min={-MAX_STRAIGHTEN}
+						max={MAX_STRAIGHTEN}
+						step="0.1"
+						value={straighten}
+						disabled={!turned}
+						onChange={(changeEvent) => setStraighten(Number(changeEvent.target.value))}
+						onDoubleClick={() => setStraighten(0)}
+						className="h-2 min-w-0 flex-1 cursor-pointer accent-accent"
+					/>
+					<span className="tnum w-14 shrink-0 text-right text-sm text-muted">{straighten.toFixed(1)}°</span>
+					<button type="button" className={btn('ghost', 'sm')} onClick={() => setStraighten(0)} disabled={!straighten}>Zero</button>
+				</div>
+
 				<div className="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label="Crop shape">
 					<button type="button" onClick={() => choosePreset('free')} disabled={!turned} aria-pressed={presetId === 'free'} className={btn(presetId === 'free' ? 'primary' : 'secondary', 'sm')}>Free roam</button>
 					{RATIO_PRESETS.map((preset) => {
@@ -189,7 +216,7 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 					<div className="flex items-center gap-2">
 						<button type="button" className={btn('ghost', 'md')} onClick={reset} disabled={!turned}>Reset</button>
 						<button type="button" className={btn('secondary', 'md')} onClick={onClose}>Cancel</button>
-						<button type="button" className={btn('primary', 'md')} disabled={!turned} onClick={() => onApply(toEdit(rotate, flip, crop))}>{applyLabel}</button>
+						<button type="button" className={btn('primary', 'md')} disabled={!turned} onClick={() => onApply(toEdit(rotate, flip, straighten, crop))}>{applyLabel}</button>
 					</div>
 				</div>
 			</div>
