@@ -4,6 +4,7 @@ import { jobTitle } from '../components/cards/JobCard.jsx'
 import { ResultCard } from '../components/cards/ResultCard.jsx'
 import Icon from '../components/icons/Icon.jsx'
 import DeleteDialog from '../components/jobs/DeleteDialog.jsx'
+import MetadataDialog from '../features/metadata/MetadataDialog.jsx'
 import { CropEditor } from '../features/editor/CropEditor.jsx'
 import { Badge, StatusBadge } from '../components/ui/Badge.jsx'
 import { btn } from '../components/ui/buttonStyles.js'
@@ -14,7 +15,7 @@ import { copyText } from '../lib/clipboard.js'
 import { fmtBytes, fmtClock, fmtDate } from '../lib/format.js'
 import { modelLabel } from '../lib/models.js'
 
-function Viewer({ job, items, index, onIndex, onClose, onEdit }) {
+function Viewer({ job, items, index, onIndex, onClose, onEdit, onInfo }) {
 	const item = items[index]
 
 	useEffect(() => {
@@ -35,6 +36,9 @@ function Viewer({ job, items, index, onIndex, onClose, onEdit }) {
 					<p className="tnum text-sm text-muted">{item.w ? `${item.w}×${item.h} · ` : ''}{fmtBytes(item.size)}{items.length > 1 ? ` · ${index + 1} of ${items.length}` : ''}</p>
 				</div>
 
+				{item.kind === 'image' && (
+					<button type="button" onClick={() => onInfo(item)} className={btn('secondary', 'sm')}><Icon name="info" className="size-4" />Details</button>
+				)}
 				{item.kind === 'image' && (
 					<button type="button" onClick={() => onEdit(item)} className={btn('secondary', 'sm')}><Icon name="crop" className="size-4" />Edit</button>
 				)}
@@ -93,6 +97,7 @@ export default function JobDetailPage({ id, system, models }) {
 	const [view, setView] = useState(null)
 	const [del, setDel] = useState(false)
 	const [editingItem, setEditingItem] = useState(null)
+	const [infoItem, setInfoItem] = useState(null)
 	const toast = useToast()
 
 	const load = useCallback(() => api.job(id).then(setJob).catch((loadError) => setError(loadError.message)), [id])
@@ -193,7 +198,7 @@ export default function JobDetailPage({ id, system, models }) {
 				<ul className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
 					{job.items.map((item) => {
 						const doneIndex = done.findIndex((doneItem) => doneItem.id === item.id)
-						return <li key={item.id} className="min-w-0"><ResultCard jobId={job.id} item={item} onOpen={() => setView(doneIndex)} onEdit={() => setEditingItem(item)} /></li>
+						return <li key={item.id} className="min-w-0"><ResultCard jobId={job.id} item={item} onOpen={() => setView(doneIndex)} onEdit={() => setEditingItem(item)} onInfo={() => setInfoItem(item)} /></li>
 					})}
 				</ul>
 			)}
@@ -201,7 +206,8 @@ export default function JobDetailPage({ id, system, models }) {
 				<p className="mt-6 text-sm text-muted">Nothing was produced. The error for each file is shown on its card.</p>
 			)}
 
-			{view !== null && done[view] && <Viewer job={job} items={done} index={view} onIndex={setView} onClose={() => setView(null)} onEdit={setEditingItem} />}
+			{view !== null && done[view] && <Viewer job={job} items={done} index={view} onIndex={setView} onClose={() => setView(null)} onEdit={setEditingItem} onInfo={setInfoItem} />}
+			{infoItem && <MetadataDialog title={infoItem.out_name} load={() => api.itemMetadata(job.id, infoItem.id)} onClose={() => setInfoItem(null)} />}
 			{editingItem && (
 				<CropEditor
 					pickedFile={{ file: { name: editingItem.out_name }, url: api.fileUrl(job.id, editingItem.id, true) }}

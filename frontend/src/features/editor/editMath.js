@@ -28,10 +28,16 @@ export const turn = (rotate, direction) => (rotate + (direction > 0 ? 90 : 270))
 export const isFullCrop = (crop) => crop.x < 1e-6 && crop.y < 1e-6 && crop.width > 1 - 1e-6 && crop.height > 1 - 1e-6
 
 // the edit object sent to the server, or null when nothing changes
-export function toEdit(rotate, flip, straighten, crop) {
+export const NO_ADJUST = { brightness: 0, contrast: 0, saturation: 0 }
+export const hasAdjust = (adjust) => Object.values(adjust).some(Boolean)
+
+// the same three steps as the backend (brightness, then contrast, then saturation) as CSS filters for the live preview
+export const adjustFilter = (adjust) => `brightness(${1 + adjust.brightness / 100}) contrast(${1 + adjust.contrast / 100}) saturate(${1 + adjust.saturation / 100})`
+
+export function toEdit({ rotate, flip, straighten, adjust, crop }) {
 	const full = isFullCrop(crop)
-	if (rotate === 0 && !flip && !straighten && full) return null
-	return { flip, rotate, straighten, crop: full ? null : { ...crop } }
+	if (rotate === 0 && !flip && !straighten && !hasAdjust(adjust) && full) return null
+	return { flip, rotate, straighten, adjust: hasAdjust(adjust) ? { ...adjust } : null, crop: full ? null : { ...crop } }
 }
 
 // the stored edit is "mirror left to right, then turn clockwise", but people flip what they see.

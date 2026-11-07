@@ -17,6 +17,12 @@ export const api = {
 	logout: () => fetch('/api/auth/logout', { method: 'POST' }).then(json),
 	system: () => fetch('/api/system').then(json),
 	usage: () => fetch('/api/system/usage').then(json),
+	inspect: (file) => {
+		const formData = new FormData()
+		formData.append('file', file)
+		return fetch('/api/inspect', { method: 'POST', body: formData }).then(json)
+	},
+	itemMetadata: (jobId, itemId) => fetch(`/api/jobs/${jobId}/items/${itemId}/metadata`).then(json),
 	models: () => fetch('/api/models').then(json),
 	jobs: () => fetch('/api/jobs').then(json),
 	job: (id) => fetch(`/api/jobs/${id}`).then(json),

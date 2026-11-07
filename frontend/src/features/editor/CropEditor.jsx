@@ -3,7 +3,7 @@ import Icon from '../../components/icons/Icon.jsx'
 import { btn } from '../../components/ui/buttonStyles.js'
 import { Modal } from '../../components/ui/Modal.jsx'
 import { RATIO_PRESETS, platformName, ratioLabel } from './cropPresets.js'
-import { FULL_CROP, MAX_STRAIGHTEN, fitRatio, mirrorCrop, moveCrop, resizeCrop, rotatedSize, rotationAfterFlip, straightenScale, straightenedSize, toEdit, turn } from './editMath.js'
+import { FULL_CROP, MAX_STRAIGHTEN, NO_ADJUST, adjustFilter, fitRatio, mirrorCrop, moveCrop, resizeCrop, rotatedSize, rotationAfterFlip, straightenScale, straightenedSize, toEdit, turn } from './editMath.js'
 
 // where each resize handle sits on the crop box, as percentages
 const HANDLES = {
@@ -13,11 +13,34 @@ const HANDLES = {
 }
 const CURSORS = { nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize', n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize' }
 
-// ---- the basic editor: rotate and crop one image ---------------------------
+// a labelled slider that returns to zero on double click
+function Slider({ id, label, value, min, max, step, disabled, onChange, format = (number) => String(number) }) {
+	return (
+		<div className="flex items-center gap-3">
+			<label htmlFor={id} className="w-24 shrink-0 text-sm font-medium">{label}</label>
+			<input
+				id={id}
+				type="range"
+				min={min}
+				max={max}
+				step={step}
+				value={value}
+				disabled={disabled}
+				onChange={(changeEvent) => onChange(Number(changeEvent.target.value))}
+				onDoubleClick={() => onChange(0)}
+				className="h-2 min-w-0 flex-1 cursor-pointer accent-accent"
+			/>
+			<span className="tnum w-12 shrink-0 text-right text-sm text-muted">{format(value)}</span>
+		</div>
+	)
+}
+
+// ---- the basic editor: flip, rotate, straighten, crop and colour for one image ---------------------------
 export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'Apply', note = '' }) {
 	const [naturalSize, setNaturalSize] = useState(null)
 	const [rotate, setRotate] = useState(edit?.rotate || 0)
 	const [straighten, setStraighten] = useState(edit?.straighten || 0)   // small extra turn in degrees, clockwise
+	const [adjust, setAdjust] = useState({ ...NO_ADJUST, ...(edit?.adjust || {}) })   // brightness, contrast, saturation: -100 to 100
 	const [flip, setFlip] = useState(Boolean(edit?.flip))      // mirrored left to right before the turn
 	const [crop, setCrop] = useState(edit?.crop || FULL_CROP)
 	const [presetId, setPresetId] = useState('free')      // 'free' is free roam
@@ -59,10 +82,7 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 		const nextTurned = straightenedSize(nextRotated.width, nextRotated.height, straighten)
 		setRotate(nextRotate)
 		// a crop made before turning no longer lines up, so start it again
-		if (presetId === 'free') { 
-			setCrop(FULL_CROP)
-			return 
-		}
+		if (presetId === 'free') { setCrop(FULL_CROP); return }
 		const preset = RATIO_PRESETS.find((candidate) => candidate.id === presetId)
 		const base = preset.ratio === 'original' ? nextTurned : preset
 		refit(swapped ? { width: base.height, height: base.width } : { width: base.width, height: base.height }, nextTurned)
@@ -74,14 +94,7 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 		setCrop(mirrorCrop(crop, vertical))
 	}
 
-	const reset = () => { 
-		setRotate(0)
-		setFlip(false)
-		setStraighten(0)
-		setCrop(FULL_CROP)
-		setPresetId('free')
-		setSwapped(false) 
-	}
+	const reset = () => { setRotate(0); setFlip(false); setStraighten(0); setAdjust(NO_ADJUST); setCrop(FULL_CROP); setPresetId('free'); setSwapped(false) }
 
 	// ---- dragging ----
 	const pointerFraction = (pointerEvent) => {
@@ -131,7 +144,7 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 						<div
 							ref={stageRef}
 							className="relative touch-none select-none overflow-hidden"
-							style={{ aspectRatio: `${rotated.width} / ${rotated.height}`, width: `min(100%, calc(60vh * ${rotated.width / rotated.height}))` }}
+							style={{ aspectRatio: `${rotated.width} / ${rotated.height}`, width: `min(100%, calc(44vh * ${rotated.width / rotated.height}))` }}
 						>
 							<img
 								src={pickedFile.url}
@@ -141,6 +154,7 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 								style={{
 									width: rotate % 180 === 0 ? '100%' : `${(rotated.height / rotated.width) * 100}%`,
 									height: rotate % 180 === 0 ? '100%' : `${(rotated.width / rotated.height) * 100}%`,
+									filter: adjustFilter(adjust),
 									// the box shows the biggest empty-corner-free part, so the picture is drawn larger than the box
 									transform: `translate(-50%, -50%) rotate(${straighten}deg) scale(${1 / straightenScale(rotated.width, rotated.height, straighten)}) rotate(${rotate}deg) scaleX(${flip ? -1 : 1})`,
 								}}
@@ -177,22 +191,51 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 					)}
 				</div>
 
-				<div className="mt-4 flex items-center gap-3">
-					<label htmlFor="straighten-angle" className="w-24 shrink-0 text-sm font-medium">Straighten</label>
-					<input
-						id="straighten-angle"
-						type="range"
-						min={-MAX_STRAIGHTEN}
-						max={MAX_STRAIGHTEN}
-						step="0.1"
-						value={straighten}
+				<div className="mt-4 grid gap-x-8 gap-y-2 sm:grid-cols-2">
+					<Slider 
+						id="straighten-angle" 
+						label="Straighten" 
+						value={straighten} 
+						min={-MAX_STRAIGHTEN} 
+						max={MAX_STRAIGHTEN} 
+						step={0.1} 
 						disabled={!turned}
-						onChange={(changeEvent) => setStraighten(Number(changeEvent.target.value))}
-						onDoubleClick={() => setStraighten(0)}
-						className="h-2 min-w-0 flex-1 cursor-pointer accent-accent"
+						format={(value) => `${value.toFixed(1)}°`} 
+						onChange={setStraighten} 
 					/>
-					<span className="tnum w-14 shrink-0 text-right text-sm text-muted">{straighten.toFixed(1)}°</span>
-					<button type="button" className={btn('ghost', 'sm')} onClick={() => setStraighten(0)} disabled={!straighten}>Zero</button>
+
+					<Slider 
+						id="adjust-brightness" 
+						label="Brightness" 
+						value={adjust.brightness} 
+						min={-100} 
+						max={100} 
+						step={1} 
+						disabled={!turned}
+						onChange={(value) => setAdjust({ ...adjust, brightness: value })} 
+					/>
+
+					<Slider 
+						id="adjust-contrast" 
+						label="Contrast" 
+						value={adjust.contrast} 
+						min={-100} 
+						max={100} 
+						step={1} 
+						disabled={!turned}
+						onChange={(value) => setAdjust({ ...adjust, contrast: value })} 
+					/>
+
+					<Slider 
+						id="adjust-saturation" 
+						label="Saturation" 
+						value={adjust.saturation} 
+						min={-100} 
+						max={100} 
+						step={1} 
+						disabled={!turned}
+						onChange={(value) => setAdjust({ ...adjust, saturation: value })} 
+					/>
 				</div>
 
 				<div className="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label="Crop shape">
@@ -216,7 +259,7 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 					<div className="flex items-center gap-2">
 						<button type="button" className={btn('ghost', 'md')} onClick={reset} disabled={!turned}>Reset</button>
 						<button type="button" className={btn('secondary', 'md')} onClick={onClose}>Cancel</button>
-						<button type="button" className={btn('primary', 'md')} disabled={!turned} onClick={() => onApply(toEdit(rotate, flip, straighten, crop))}>{applyLabel}</button>
+						<button type="button" className={btn('primary', 'md')} disabled={!turned} onClick={() => onApply(toEdit({ rotate, flip, straighten, adjust, crop }))}>{applyLabel}</button>
 					</div>
 				</div>
 			</div>

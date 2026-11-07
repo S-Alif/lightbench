@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { CropEditor } from '../features/editor/CropEditor.jsx'
 import { editedSize } from '../features/editor/editMath.js'
+import MetadataDialog from '../features/metadata/MetadataDialog.jsx'
+import { api } from '../api/client.js'
 import { PickedCard } from '../components/cards/PickedCard.jsx'
 import { ResultCard } from '../components/cards/ResultCard.jsx'
 import RunPanel from '../components/jobs/RunPanel.jsx'
@@ -34,6 +36,7 @@ export default function NewJobPage({
 	const [over, setOver] = useState(false)
 	const [edits, setEdits] = useState({})            // crop and rotate per picked file id
 	const [editingId, setEditingId] = useState(null)
+	const [infoFile, setInfoFile] = useState(null)       // the picked file whose details are open
 	const input = useRef(null)
 	const filesRef = useRef(files)
 	filesRef.current = files
@@ -180,7 +183,7 @@ export default function NewJobPage({
 
 					{files.length > 0 && (
 						<ul className="grid grid-cols-2 gap-5 sm:grid-cols-3 xl:grid-cols-4">
-							{files.map((pickedFile, index) => <li key={pickedFile.id} className="min-w-0"><PickedCard pickedFile={pickedFile} edited={Boolean(edits[pickedFile.id])} state={fileState(run, index)} onEdit={() => setEditingId(pickedFile.id)} onRemove={() => remove(pickedFile.id)} /></li>)}
+							{files.map((pickedFile, index) => <li key={pickedFile.id} className="min-w-0"><PickedCard pickedFile={pickedFile} edited={Boolean(edits[pickedFile.id])} state={fileState(run, index)} onEdit={() => setEditingId(pickedFile.id)} onInfo={() => setInfoFile(pickedFile)} onRemove={() => remove(pickedFile.id)} /></li>)}
 						</ul>
 					)}
 					{/* the page was left and reopened mid-job, so the picked files are gone: show the job's own cards */}
@@ -224,6 +227,7 @@ export default function NewJobPage({
 					</div>
 				</div>
 			</div>}
+			{infoFile && <MetadataDialog title={infoFile.file.name} load={() => api.inspect(infoFile.file)} onClose={() => setInfoFile(null)} />}
 			{editingId && (
 				<CropEditor
 					pickedFile={files.find((pickedFile) => pickedFile.id === editingId)}
