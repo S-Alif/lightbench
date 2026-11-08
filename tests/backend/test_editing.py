@@ -138,5 +138,41 @@ class StraightenTests(unittest.TestCase):
         self.assertEqual(both.shape[1], round(straightened.shape[1] * 0.5))
 
 
+class AdjustTests(unittest.TestCase):
+    def grey(self, value):
+        return np.full((4, 4, 3), value, np.uint8)
+
+    def test_untouched_values_change_nothing(self):
+        self.assertIsNone(validate_edit({"adjust": {"brightness": 0, "contrast": 0, "saturation": 0}}))
+        image = sample_image()
+        self.assertTrue(np.array_equal(apply_edit(image, {"adjust": None}), image))
+
+    def test_brightness_scales_and_clips(self):
+        self.assertEqual(int(apply_edit(self.grey(100), {"adjust": {"brightness": 50}})[0, 0, 0]), 150)
+        self.assertEqual(int(apply_edit(self.grey(200), {"adjust": {"brightness": 50}})[0, 0, 0]), 255)
+        self.assertEqual(int(apply_edit(self.grey(100), {"adjust": {"brightness": -100}})[0, 0, 0]), 0)
+
+    def test_contrast_pushes_away_from_middle_grey(self):
+        darker = int(apply_edit(self.grey(100), {"adjust": {"contrast": 50}})[0, 0, 0])
+        lighter = int(apply_edit(self.grey(160), {"adjust": {"contrast": 50}})[0, 0, 0])
+        self.assertLess(darker, 100)
+        self.assertGreater(lighter, 160)
+
+    def test_saturation_zero_point_makes_grey_and_keeps_grey(self):
+        colour = np.zeros((2, 2, 3), np.uint8)
+        colour[:] = (200, 100, 50)
+        grey = apply_edit(colour, {"adjust": {"saturation": -100}})
+        self.assertTrue((grey[..., 0] == grey[..., 1]).all() and (grey[..., 1] == grey[..., 2]).all())
+        self.assertTrue(np.array_equal(apply_edit(self.grey(120), {"adjust": {"saturation": 80}}), self.grey(120)))
+
+    def test_validation_and_order(self):
+        with self.assertRaises(ValueError):
+            validate_edit({"adjust": {"brightness": 101}})
+        with self.assertRaises(ValueError):
+            validate_edit({"adjust": {"hue": 5}})
+        both = apply_edit(sample_image(8, 6), {"crop": {"x": 0, "y": 0, "width": 0.5, "height": 1}, "adjust": {"brightness": 10}})
+        self.assertEqual(both.shape[1], 4)
+
+
 if __name__ == "__main__":
     unittest.main()

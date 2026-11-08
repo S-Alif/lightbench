@@ -28,7 +28,8 @@
 | `core/models/architectures.py` | `RRDBNet`, `SRVGGNetCompact` |
 | `core/models/loader.py` | reads weight files, inspects custom models, builds the network |
 | `core/media/` | `video.py` (ffmpeg pipes), `thumbnails.py`, `watermark.py`, `types.py` |
-| `core/editing/operations.py` | `validate_edit` and `apply_edit`: rotate, then crop (images only) |
+| `core/editing/operations.py` | `validate_edit` and `apply_edit`: flip, rotate, straighten, crop, colour (images only) |
+| `core/media/metadata.py` | `read_metadata`: camera, date, GPS, prompts and colour profile of an image |
 
 ## Frontend (`frontend/src/`)
 
@@ -41,6 +42,7 @@
 | `components/cards/` | `CardShell`, `PickedCard`, `ResultCard`, `JobCard` |
 | `components/layout/` | `Device`, `Banner` |
 | `components/jobs/` | `RunPanel` (progress above the file cards), `ResourceMonitor`, `DeleteDialog` |
+| `features/metadata/` | `MetadataDialog`, the image details window |
 | `features/editor/` | `CropEditor` (opened from a picked image's "Crop / rotate" button), `cropPresets.js`, `editMath.js` |
 | `features/settings/` | settings panel, defaults, controls, watermark preview |
 | `pages/` | `NewJobPage`, `HistoryPage`, `JobDetailPage` |
@@ -54,7 +56,21 @@
 
 ## Edits
 
-The optional form field `edits` on `POST /api/jobs` is a JSON list with one entry per file, in the same order (`null` for no edit). An entry is `{"rotate": 0|90|180|270, "crop": {"x","y","width","height"} | null}`. Rotation is clockwise and happens first. Crop values are fractions (0 to 1) of the rotated image, so the browser preview and the output agree at any resolution. The edit is stored on the item in `job.json`.
+The optional form field `edits` on `POST /api/jobs` is a JSON list with one entry per file, in the same order (`null` for no edit). An entry looks like:
+
+```json
+{"flip": false, "rotate": 90, "straighten": -1.5, "crop": {"x": 0, "y": 0, "width": 1, "height": 0.5}, "adjust": {"brightness": 10, "contrast": 0, "saturation": -20}}
+```
+
+Steps run in this order, before upscaling:
+
+1. `flip` mirrors left to right. A top to bottom mirror is stored as a flip plus a 180 degree turn.
+2. `rotate` turns clockwise by 0, 90, 180 or 270 degrees.
+3. `straighten` turns by a small angle (-45 to 45, clockwise) and keeps the biggest same-shaped rectangle without empty corners.
+4. `crop` is a box in fractions (0 to 1) of the image so far, so the browser preview and the output agree at any resolution.
+5. `adjust` changes brightness, contrast and saturation (-100 to 100 each) with the same formulas as the CSS filters used for the live preview.
+
+The edit is stored on the item in `job.json`. `features/editor/editMath.js` mirrors the size maths of the backend.
 
 ## API
 
@@ -64,6 +80,8 @@ The optional form field `edits` on `POST /api/jobs` is a JSON list with one entr
 | POST | `/api/auth/login`, `/api/auth/logout` | start or end a session (cookie) |
 | GET | `/api/system` | device, ffmpeg and folder info |
 | GET | `/api/system/usage` | live CPU, memory and GPU load for the resource monitor |
+| POST | `/api/inspect` | read the metadata of a picked image (the upload is deleted straight after) |
+| GET | `/api/jobs/{id}/items/{item}/metadata` | metadata of a finished image |
 | GET | `/api/models` | built-in and custom models |
 | GET, POST | `/api/jobs` | list jobs, create a job |
 | GET, DELETE | `/api/jobs/{id}` | one job, delete a job |

@@ -19,26 +19,33 @@ No accounts, no cloud, nothing leaves your machine.
 
 ## Contents
 
-- [Features](#features)
-- [Quick start](#quick-start)
-- [Hardware](#hardware)
-- [Models](#models)
-- [Using your own models](#using-your-own-models)
-- [Configuration](#configuration)
-- [Project layout](#project-layout)
-- [Privacy and security](#privacy-and-security)
-- [Tested on](#tested-on)
-- [Roadmap](#roadmap)
-- [Credits](#credits)
-- [License](#license)
+- [Lightbench](#lightbench)
+  - [Contents](#contents)
+  - [Features](#features)
+  - [Quick start](#quick-start)
+    - [Options](#options)
+    - [Developing the frontend](#developing-the-frontend)
+  - [Hardware](#hardware)
+  - [Models](#models)
+  - [Using your own models](#using-your-own-models)
+  - [Configuration](#configuration)
+  - [Project layout](#project-layout)
+  - [Privacy and security](#privacy-and-security)
+  - [Tested on](#tested-on)
+  - [Roadmap](#roadmap)
+  - [Credits](#credits)
+    - [Models](#models-1)
+    - [Libraries](#libraries)
+  - [License](#license)
 
 ## Features
 
 - **Photo and Art profiles**, or pick any model yourself, including your own `.pth` files
 - **2×, 3× and 4× upscaling**, or turn it off to only watermark or convert
-- **Basic editor:** crop and rotate each image before upscaling, with a free roam crop and ratio presets (platform names such as Instagram post or YouTube are shown only where the ratio matches their guidance)
-- **Edit finished results too:** crop and rotate a result from History. It is saved as a new entry and the original result stays untouched
-- **Text watermark** with nine positions, colour, opacity, and a size that is either a percentage of the image or fixed pixels
+- **Basic editor** for each image before upscaling: crop (free roam or ratio presets, with platform names such as Instagram post or YouTube shown only where the ratio matches their guidance), rotate, flip, straighten, and brightness, contrast and saturation with a live preview
+- **Edit finished results too:** open a result from History and edit it. It is saved as a new entry and the original result stays untouched
+- **Image details:** see the camera, date, GPS location and AI prompts hidden inside a picked image or a result
+- **Text watermark** with nine positions, color, opacity, and a size that is either a percentage of the image or fixed pixels
 - **Life-sized watermark preview** that copies the aspect ratio of your first file, so what you place is what you get
 - **Images:** JPG, PNG, WebP. **Videos:** H.264 MP4 with the original audio kept
 - **Batch processing** with live progress on every file card and a summary above them: percentage, file counter, elapsed time and ETA
@@ -204,11 +211,11 @@ The code is written to work on Windows, macOS and Linux. The CPU path, the API a
 
 ## Roadmap
 
-- Basic editor: colour adjustments, straighten, metadata clean-up (crop and rotate are done)
+- Basic editor: more tools (sharpen, resize, text and shapes)
 - Image watermarks (logos), not only text
 - More model families
 
-Ideas and pull requests are welcome.
+> Ideas are welcomed but not taking any PR now.
 
 ## Credits
 

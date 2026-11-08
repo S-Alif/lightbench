@@ -1,8 +1,8 @@
-"""flip, rotate, straighten and crop for images, applied before upscaling.
+"""flip, rotate, straighten, crop and colour adjustments for images, applied before upscaling.
 
 An edit is a small dict, the same shape the frontend sends and job.json stores:
 
-    {"flip": true, "rotate": 90, "straighten": -2.5, "crop": {"x": 0.1, "y": 0.2, "width": 0.5, "height": 0.6}}
+    {"flip": true, "rotate": 90, "straighten": -2.5, "adjust": {"brightness": 10, "contrast": 0, "saturation": -20}, "crop": {"x": 0.1, "y": 0.2, "width": 0.5, "height": 0.6}}
 
 flip mirrors the image left to right, applied first. (a top to bottom mirror is the same as
 flip plus a 180 degree turn, so one flag is enough.)
@@ -11,6 +11,8 @@ straighten is a small extra turn in clockwise degrees (-45 to 45) to level a til
 image is then cut to the biggest rectangle of the same shape that has no empty corners, applied third.
 crop is a box in fractions (0..1) of the flipped, rotated and straightened image, so the preview in the
 browser and the real image agree no matter what size the file is.
+adjust changes brightness, contrast and saturation, each from -100 to 100 (0 = untouched), applied last.
+The maths is the same as the CSS filters the editor uses for its live preview, so what you see is what you get.
 """
 from __future__ import annotations
 
@@ -23,6 +25,7 @@ from PIL import Image
 
 ROTATIONS = (0, 90, 180, 270)
 MAX_STRAIGHTEN = 45.0
+ADJUST_KEYS = ("brightness", "contrast", "saturation")
 CROP_KEYS = ("x", "y", "width", "height")
 EPSILON = 1e-6
 
@@ -60,9 +63,22 @@ def validate_edit(edit: Optional[dict]) -> Optional[dict]:
         if covers_everything:
             crop = None
 
-    if not flip and rotate == 0 and straighten == 0 and crop is None:
+    adjust = edit.get("adjust")
+    if adjust is not None:
+        if not isinstance(adjust, dict):
+            raise ValueError("adjust must be an object")
+        unknown = set(adjust) - set(ADJUST_KEYS)
+        if unknown:
+            raise ValueError(f"unknown adjustment: {', '.join(sorted(unknown))}")
+        adjust = {key: int(round(float(adjust.get(key) or 0))) for key in ADJUST_KEYS}
+        if any(abs(value) > 100 for value in adjust.values()):
+            raise ValueError("each adjustment must be between -100 and 100")
+        if not any(adjust.values()):
+            adjust = None
+
+    if not flip and rotate == 0 and straighten == 0 and crop is None and adjust is None:
         return None
-    return {"flip": flip, "rotate": rotate, "straighten": straighten, "crop": crop}
+    return {"flip": flip, "rotate": rotate, "straighten": straighten, "crop": crop, "adjust": adjust}
 
 
 def flip_horizontal(rgb: np.ndarray) -> np.ndarray:
@@ -93,6 +109,26 @@ def straighten(rgb: np.ndarray, degrees: float) -> np.ndarray:
     return turned[top:top + keep_height, left:left + keep_width]
 
 
+def adjust_colour(rgb: np.ndarray, adjust: dict) -> np.ndarray:
+    """brightness, then contrast, then saturation: the same formulas as the CSS filters used for the preview."""
+    pixels = rgb.astype(np.float32) / 255.0
+    brightness = 1 + adjust["brightness"] / 100
+    contrast = 1 + adjust["contrast"] / 100
+    saturation = 1 + adjust["saturation"] / 100
+    if adjust["brightness"]:
+        pixels = np.clip(pixels * brightness, 0, 1)
+    if adjust["contrast"]:
+        pixels = np.clip((pixels - 0.5) * contrast + 0.5, 0, 1)
+    if adjust["saturation"]:
+        matrix = np.array([
+            [0.213 + 0.787 * saturation, 0.715 - 0.715 * saturation, 0.072 - 0.072 * saturation],
+            [0.213 - 0.213 * saturation, 0.715 + 0.285 * saturation, 0.072 - 0.072 * saturation],
+            [0.213 - 0.213 * saturation, 0.715 - 0.715 * saturation, 0.072 + 0.928 * saturation],
+        ], dtype=np.float32)
+        pixels = np.clip(pixels @ matrix.T, 0, 1)
+    return np.rint(pixels * 255).astype(np.uint8)
+
+
 def crop_box(rgb: np.ndarray, crop: dict) -> np.ndarray:
     height, width = rgb.shape[:2]
     left = min(max(round(crop["x"] * width), 0), width - 1)
@@ -103,7 +139,7 @@ def crop_box(rgb: np.ndarray, crop: dict) -> np.ndarray:
 
 
 def apply_edit(rgb: np.ndarray, edit: Optional[dict]) -> np.ndarray:
-    """flip, rotate, straighten, then crop. returns a new contiguous array."""
+    """flip, rotate, straighten, crop, then colour. returns a new contiguous array."""
     edit = validate_edit(edit)
     if edit is None:
         return rgb
@@ -115,4 +151,6 @@ def apply_edit(rgb: np.ndarray, edit: Optional[dict]) -> np.ndarray:
         rgb = straighten(rgb, edit["straighten"])
     if edit["crop"]:
         rgb = crop_box(rgb, edit["crop"])
+    if edit["adjust"]:
+        rgb = adjust_colour(rgb, edit["adjust"])
     return np.ascontiguousarray(rgb)

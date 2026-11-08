@@ -6,7 +6,7 @@ from pathlib import Path
 
 from starlette.background import BackgroundTask
 from starlette.exceptions import HTTPException
-from starlette.responses import FileResponse
+from starlette.responses import FileResponse, JSONResponse
 
 from ..helpers import get_job_or_404
 
@@ -20,6 +20,16 @@ async def item_file(request):
     if request.query_params.get("inline"):
         return FileResponse(item.out)
     return FileResponse(item.out, filename=item.out_name)
+
+
+async def item_metadata(request):
+    """what is stored inside a finished image (shows that metadata was removed, or what was kept)."""
+    from ...core.media.metadata import read_metadata
+    job = get_job_or_404(request)
+    item = next((candidate for candidate in job.items if candidate.id == request.path_params["item_id"]), None)
+    if not item or item.status != "done" or item.kind != "image" or not item.out or not item.out.exists():
+        raise HTTPException(404, "Result not ready")
+    return JSONResponse(read_metadata(item.out))
 
 
 async def job_zip(request):

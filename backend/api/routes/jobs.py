@@ -109,6 +109,30 @@ async def edit_result(request):
     return JSONResponse(manager.create(new_id, opts, [(new_name, copy_path, "image", edit)]).to_dict())
 
 
+async def inspect_file(request):
+    """read the metadata of a picked image without starting a job. the upload is deleted straight after."""
+    from ...core.media.metadata import read_metadata
+    form = await request.form()
+    uploaded = form.get("file")
+    if not hasattr(uploaded, "filename"):
+        return error_response("No file uploaded")
+    ext = Path(uploaded.filename or "").suffix.lower()
+    if ext not in IMAGE_EXT:
+        return error_response("Only images have metadata to show")
+    folder = JOBS_DIR.parent / "tmp"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"inspect-{manager.new_id()}{ext}"
+    try:
+        with open(path, "wb") as out:
+            while chunk := await uploaded.read(1 << 20):
+                out.write(chunk)
+        return JSONResponse(read_metadata(path))
+    except Exception as read_error:  # noqa: BLE001
+        return error_response(f"Could not read this file: {read_error}")
+    finally:
+        path.unlink(missing_ok=True)
+
+
 async def get_job(request):
     return JSONResponse(get_job_or_404(request).to_dict())
 
