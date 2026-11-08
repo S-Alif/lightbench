@@ -70,6 +70,8 @@
 html { background: var(--bg); }
 body { background: var(--bg); color: var(--ink); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 *:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+/* a dialog is focused when it opens: no ring around the whole panel, and its corners stay round */
+[role="dialog"]:focus-visible { outline: none; border-radius: 1.5rem; }
 ::selection { background: color-mix(in oklab, var(--accent) 35%, transparent); }
 input[type="range"] { accent-color: var(--accent); }
 .tnum { font-variant-numeric: tabular-nums; }

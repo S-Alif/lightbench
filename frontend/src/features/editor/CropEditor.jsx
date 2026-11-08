@@ -1,9 +1,9 @@
-import { useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Icon from '../../components/icons/Icon.jsx'
 import { btn } from '../../components/ui/buttonStyles.js'
 import { Modal } from '../../components/ui/Modal.jsx'
 import { RATIO_PRESETS, platformName, ratioLabel } from './cropPresets.js'
-import { FULL_CROP, MAX_STRAIGHTEN, NO_ADJUST, adjustFilter, fitRatio, mirrorCrop, moveCrop, resizeCrop, rotatedSize, rotationAfterFlip, straightenScale, straightenedSize, toEdit, turn } from './editMath.js'
+import { FULL_CROP, MAX_STRAIGHTEN, NO_ADJUST, adjustFilter, fitRatio, hasAdjust, isFullCrop, mirrorCrop, moveCrop, resizeCrop, rotatedSize, rotationAfterFlip, straightenScale, straightenedSize, toEdit, turn } from './editMath.js'
 
 // where each resize handle sits on the crop box, as percentages
 const HANDLES = {
@@ -13,11 +13,14 @@ const HANDLES = {
 }
 const CURSORS = { nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize', n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize' }
 
-// a labelled slider that returns to zero on double click
-function Slider({ id, label, value, min, max, step, disabled, onChange, format = (number) => String(number) }) {
+// a labelled slider with its value on the right. double click returns it to zero
+function Slider({ id, label, value, min, max, step, disabled, onChange, format = (number) => (number > 0 ? `+${number}` : String(number)) }) {
 	return (
-		<div className="flex items-center gap-3">
-			<label htmlFor={id} className="w-24 shrink-0 text-sm font-medium">{label}</label>
+		<div>
+			<div className="mb-1.5 flex items-baseline justify-between">
+				<label htmlFor={id} className="text-sm font-medium">{label}</label>
+				<span className={`tnum text-sm ${value ? 'text-ink' : 'text-muted'}`}>{format(value)}</span>
+			</div>
 			<input
 				id={id}
 				type="range"
@@ -28,14 +31,63 @@ function Slider({ id, label, value, min, max, step, disabled, onChange, format =
 				disabled={disabled}
 				onChange={(changeEvent) => onChange(Number(changeEvent.target.value))}
 				onDoubleClick={() => onChange(0)}
-				className="h-2 min-w-0 flex-1 cursor-pointer accent-accent"
+				className="h-2 w-full cursor-pointer accent-accent"
 			/>
-			<span className="tnum w-12 shrink-0 text-right text-sm text-muted">{format(value)}</span>
 		</div>
 	)
 }
 
-// ---- the basic editor: flip, rotate, straighten, crop and colour for one image ---------------------------
+// how big the element is, kept up to date while the window or panel changes size
+function useElementSize() {
+	const ref = useRef(null)
+	const [size, setSize] = useState({ width: 0, height: 0 })
+	useLayoutEffect(() => {
+		const element = ref.current
+		if (!element) return undefined
+		const observer = new ResizeObserver(([entry]) => setSize({ width: entry.contentRect.width, height: entry.contentRect.height }))
+		observer.observe(element)
+		return () => observer.disconnect()
+	}, [])
+	return [ref, size]
+}
+
+// a tiny drawing of a crop shape
+function ShapeGlyph({ width, height, dashed = false }) {
+	const longest = Math.max(width, height)
+	return (
+		<span className="grid size-8 place-items-center">
+			<span className={`block rounded-[3px] border-2 border-current ${dashed ? 'border-dashed' : ''}`} style={{ width: Math.round((24 * width) / longest), height: Math.round((24 * height) / longest) }} />
+		</span>
+	)
+}
+
+function ShapeTile({ selected, disabled, onClick, glyph, title, subtitle }) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			disabled={disabled}
+			aria-pressed={selected}
+			className={`flex min-h-[5.75rem] flex-col items-center justify-start gap-1 rounded-2xl px-1.5 py-2.5 text-center transition disabled:opacity-50 ${selected ? 'bg-accent/12 text-accent ring-2 ring-accent' : 'text-ink ring-1 ring-line hover:bg-sunken'}`}
+		>
+			{glyph}
+			<span className="text-sm font-semibold leading-none">{title}</span>
+			{subtitle && <span className="text-[11px] leading-tight text-muted">{subtitle}</span>}
+		</button>
+	)
+}
+
+function ActionButton({ icon, label, onClick, disabled }) {
+	return (
+		<button type="button" onClick={onClick} disabled={disabled} aria-label={label} className="flex flex-col items-center gap-2 rounded-2xl px-2 py-4 text-sm font-medium ring-1 ring-line transition hover:bg-sunken disabled:opacity-50">
+			<Icon name={icon} className="size-6" />{label}
+		</button>
+	)
+}
+
+const TABS = [['crop', 'Crop'], ['rotate', 'Rotate'], ['colour', 'Colour']]
+
+// ---- the basic editor: crop, rotate, flip, straighten and colour for one image ----------------------------
 export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'Apply', note = '' }) {
 	const [naturalSize, setNaturalSize] = useState(null)
 	const [rotate, setRotate] = useState(edit?.rotate || 0)
@@ -45,6 +97,8 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 	const [crop, setCrop] = useState(edit?.crop || FULL_CROP)
 	const [presetId, setPresetId] = useState('free')      // 'free' is free roam
 	const [swapped, setSwapped] = useState(false)
+	const [tab, setTab] = useState('crop')
+	const [areaRef, area] = useElementSize()      // the space the picture may use
 	const stageRef = useRef(null)
 	const drag = useRef(null)
 
@@ -121,147 +175,175 @@ export function CropEditor({ pickedFile, edit, onApply, onClose, applyLabel = 'A
 	const shapeText = ratio ? ratioLabel(ratio.width, ratio.height) : 'Free roam'
 	const visibleHandles = Object.keys(HANDLES).filter((name) => !ratio || name.length === 2)
 
-	return (
-		<Modal open onClose={onClose} label="Basic editor" size="xl">
-			<div className="p-5 sm:p-6">
-				<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-					<div className="min-w-0">
-						<h2 className="text-lg font-semibold">Basic editor</h2>
-						<p className="truncate text-sm text-muted" title={pickedFile.file.name}>{pickedFile.file.name}</p>
-					</div>
-					<div className="flex items-center gap-2">
-						<button type="button" className={btn('secondary', 'sm')} onClick={() => flipView(false)} disabled={!turned} aria-label="Flip horizontally"><Icon name="flipH" className="size-4" />Flip</button>
-						<button type="button" className={btn('secondary', 'sm')} onClick={() => flipView(true)} disabled={!turned} aria-label="Flip vertically"><Icon name="flipV" className="size-4" />Flip</button>
-						<button type="button" className={btn('secondary', 'sm')} onClick={() => rotateBy(-1)} disabled={!turned} aria-label="Rotate left"><Icon name="rotateLeft" className="size-4" />Left</button>
-						<button type="button" className={btn('secondary', 'sm')} onClick={() => rotateBy(1)} disabled={!turned} aria-label="Rotate right"><Icon name="rotateRight" className="size-4" />Right</button>
-					</div>
-				</div>
+	const changed = { crop: !isFullCrop(crop), rotate: rotate !== 0 || flip || straighten !== 0, colour: hasAdjust(adjust) }
 
-				<div className="flex justify-center rounded-xl bg-sunken p-3">
-					{!turned && <img src={pickedFile.url} alt="" className="hidden" onLoad={(loadEvent) => setNaturalSize({ width: loadEvent.target.naturalWidth, height: loadEvent.target.naturalHeight })} />}
-					{!turned && <p className="py-24 text-sm text-muted">Loading…</p>}
-					{turned && (
-						<div
-							ref={stageRef}
-							className="relative touch-none select-none overflow-hidden"
-							style={{ aspectRatio: `${rotated.width} / ${rotated.height}`, width: `min(100%, calc(44vh * ${rotated.width / rotated.height}))` }}
-						>
-							<img
-								src={pickedFile.url}
-								alt=""
-								draggable={false}
-								className="pointer-events-none absolute left-1/2 top-1/2 max-w-none"
-								style={{
-									width: rotate % 180 === 0 ? '100%' : `${(rotated.height / rotated.width) * 100}%`,
-									height: rotate % 180 === 0 ? '100%' : `${(rotated.width / rotated.height) * 100}%`,
-									filter: adjustFilter(adjust),
-									// the box shows the biggest empty-corner-free part, so the picture is drawn larger than the box
-									transform: `translate(-50%, -50%) rotate(${straighten}deg) scale(${1 / straightenScale(rotated.width, rotated.height, straighten)}) rotate(${rotate}deg) scaleX(${flip ? -1 : 1})`,
-								}}
-							/>
-							<div
-								className="absolute cursor-move border border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]"
-								style={{ left: `${crop.x * 100}%`, top: `${crop.y * 100}%`, width: `${crop.width * 100}%`, height: `${crop.height * 100}%` }}
-								onPointerDown={(pointerEvent) => startDrag(pointerEvent, 'move')}
-								onPointerMove={moveDrag}
-								onPointerUp={endDrag}
-								onPointerCancel={endDrag}
-							>
-								<div className="pointer-events-none absolute inset-0">
-									<span className="absolute inset-y-0 left-1/3 w-px bg-white/40" />
-									<span className="absolute inset-y-0 left-2/3 w-px bg-white/40" />
-									<span className="absolute inset-x-0 top-1/3 h-px bg-white/40" />
-									<span className="absolute inset-x-0 top-2/3 h-px bg-white/40" />
-								</div>
-								{visibleHandles.map((name) => (
-									<span
-										key={name}
-										className="absolute grid size-7 -translate-x-1/2 -translate-y-1/2 place-items-center"
-										style={{ left: HANDLES[name][0], top: HANDLES[name][1], cursor: CURSORS[name] }}
-										onPointerDown={(pointerEvent) => startDrag(pointerEvent, name)}
+	// the picture, as big as the free space allows
+	const fit = rotated && area.width > 0 ? Math.min(area.width / rotated.width, area.height / rotated.height) : 0
+	const stageStyle = rotated ? { width: Math.max(1, rotated.width * fit), height: Math.max(1, rotated.height * fit) } : null
+
+	return (
+		<Modal open onClose={onClose} label="Basic editor" size="2xl" padded={false}>
+			{/* the panel always fits the screen: picture on top and tools below on phones, side by side on wide screens */}
+				<div className="flex h-[calc(100dvh-2rem)] flex-col sm:h-[calc(100dvh-4rem)] lg:h-[min(88vh,800px)] lg:flex-row">
+				{/* the picture */}
+				<div className="flex h-[38%] min-w-0 shrink-0 flex-col bg-[#15171b] text-white lg:h-auto lg:flex-1">
+					<div className="relative min-h-0 flex-1">
+						<div ref={areaRef} className="absolute inset-3 grid place-items-center sm:inset-6">
+							{!turned && <img src={pickedFile.url} alt="" className="hidden" onLoad={(loadEvent) => setNaturalSize({ width: loadEvent.target.naturalWidth, height: loadEvent.target.naturalHeight })} />}
+							{!turned && <p className="text-sm text-white/60">Loading…</p>}
+							{turned && fit > 0 && (
+								<div ref={stageRef} className="relative touch-none select-none overflow-hidden shadow-2xl" style={stageStyle}>
+									<img
+										src={pickedFile.url}
+										alt=""
+										draggable={false}
+										className="pointer-events-none absolute left-1/2 top-1/2 max-w-none"
+										style={{
+											width: rotate % 180 === 0 ? '100%' : `${(rotated.height / rotated.width) * 100}%`,
+											height: rotate % 180 === 0 ? '100%' : `${(rotated.width / rotated.height) * 100}%`,
+											filter: adjustFilter(adjust),
+											// the box shows the biggest empty-corner-free part, so the picture is drawn larger than the box
+											transform: `translate(-50%, -50%) rotate(${straighten}deg) scale(${1 / straightenScale(rotated.width, rotated.height, straighten)}) rotate(${rotate}deg) scaleX(${flip ? -1 : 1})`,
+										}}
+									/>
+									<div
+										className="absolute cursor-move border border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]"
+										style={{ left: `${crop.x * 100}%`, top: `${crop.y * 100}%`, width: `${crop.width * 100}%`, height: `${crop.height * 100}%` }}
+										onPointerDown={(pointerEvent) => startDrag(pointerEvent, 'move')}
 										onPointerMove={moveDrag}
 										onPointerUp={endDrag}
 										onPointerCancel={endDrag}
 									>
-										<span className="size-3 rounded-sm border border-black/40 bg-white" />
-									</span>
-								))}
-							</div>
+										<div className="pointer-events-none absolute inset-0">
+											<span className="absolute inset-y-0 left-1/3 w-px bg-white/35" />
+											<span className="absolute inset-y-0 left-2/3 w-px bg-white/35" />
+											<span className="absolute inset-x-0 top-1/3 h-px bg-white/35" />
+											<span className="absolute inset-x-0 top-2/3 h-px bg-white/35" />
+										</div>
+										{visibleHandles.map((name) => (
+											<span
+												key={name}
+												className="absolute grid size-7 -translate-x-1/2 -translate-y-1/2 place-items-center"
+												style={{ left: HANDLES[name][0], top: HANDLES[name][1], cursor: CURSORS[name] }}
+												onPointerDown={(pointerEvent) => startDrag(pointerEvent, name)}
+												onPointerMove={moveDrag}
+												onPointerUp={endDrag}
+												onPointerCancel={endDrag}
+											>
+												<span className="size-3 rounded-sm border border-black/40 bg-white" />
+											</span>
+										))}
+									</div>
+								</div>
+							)}
 						</div>
-					)}
-				</div>
-
-				<div className="mt-4 grid gap-x-8 gap-y-2 sm:grid-cols-2">
-					<Slider 
-						id="straighten-angle" 
-						label="Straighten" 
-						value={straighten} 
-						min={-MAX_STRAIGHTEN} 
-						max={MAX_STRAIGHTEN} 
-						step={0.1} 
-						disabled={!turned}
-						format={(value) => `${value.toFixed(1)}°`} 
-						onChange={setStraighten} 
-					/>
-
-					<Slider 
-						id="adjust-brightness" 
-						label="Brightness" 
-						value={adjust.brightness} 
-						min={-100} 
-						max={100} 
-						step={1} 
-						disabled={!turned}
-						onChange={(value) => setAdjust({ ...adjust, brightness: value })} 
-					/>
-
-					<Slider 
-						id="adjust-contrast" 
-						label="Contrast" 
-						value={adjust.contrast} 
-						min={-100} 
-						max={100} 
-						step={1} 
-						disabled={!turned}
-						onChange={(value) => setAdjust({ ...adjust, contrast: value })} 
-					/>
-
-					<Slider 
-						id="adjust-saturation" 
-						label="Saturation" 
-						value={adjust.saturation} 
-						min={-100} 
-						max={100} 
-						step={1} 
-						disabled={!turned}
-						onChange={(value) => setAdjust({ ...adjust, saturation: value })} 
-					/>
-				</div>
-
-				<div className="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label="Crop shape">
-					<button type="button" onClick={() => choosePreset('free')} disabled={!turned} aria-pressed={presetId === 'free'} className={btn(presetId === 'free' ? 'primary' : 'secondary', 'sm')}>Free roam</button>
-					{RATIO_PRESETS.map((preset) => {
-						const label = preset.ratio === 'original' ? 'Original' : `${preset.width}:${preset.height}`
-						const name = preset.ratio === 'original' ? '' : platformName(preset.width, preset.height)
-						return (
-							<button key={preset.id} type="button" onClick={() => choosePreset(preset.id)} disabled={!turned} aria-pressed={presetId === preset.id} className={btn(presetId === preset.id ? 'primary' : 'secondary', 'sm')}>
-								{label}{name && <span className="ml-1.5 text-xs opacity-75">{name}</span>}
-							</button>
-						)
-					})}
-					{ratio && ratio.width !== ratio.height && <button type="button" onClick={swapShape} className={btn('ghost', 'sm')}>Swap shape</button>}
-				</div>
-
-				{note && <p className="mt-4 text-sm text-muted">{note}</p>}
-
-				<div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-					<p className="tnum text-sm text-muted">{shapeText}{turned && ` · ${cropWidthPixels}×${cropHeightPixels} px`}</p>
-					<div className="flex items-center gap-2">
-						<button type="button" className={btn('ghost', 'md')} onClick={reset} disabled={!turned}>Reset</button>
-						<button type="button" className={btn('secondary', 'md')} onClick={onClose}>Cancel</button>
-						<button type="button" className={btn('primary', 'md')} disabled={!turned} onClick={() => onApply(toEdit({ rotate, flip, straighten, adjust, crop }))}>{applyLabel}</button>
+					</div>
+					<div className="tnum flex items-center justify-between gap-3 border-t border-white/10 px-5 py-3 text-xs text-white/70">
+						<span>{turned ? `${cropWidthPixels} × ${cropHeightPixels} px · ${shapeText}` : ' '}</span>
+						{naturalSize && <span>Original {naturalSize.width} × {naturalSize.height}</span>}
 					</div>
 				</div>
+
+				{/* the tools */}
+				<aside className="flex min-h-0 w-full flex-1 flex-col lg:w-[22rem] lg:flex-none lg:shrink-0 lg:border-l lg:border-line">
+					<div className="flex items-start justify-between gap-3 px-5 pb-3 pt-4 sm:pt-5">
+						<div className="min-w-0">
+							<h2 className="text-lg font-semibold leading-tight">Basic editor</h2>
+							<p className="truncate text-sm text-muted" title={pickedFile.file.name}>{pickedFile.file.name}</p>
+						</div>
+						<button type="button" onClick={onClose} aria-label="Close" className={btn('ghost', 'sm', 'px-2')}><Icon name="x" className="size-5" /></button>
+					</div>
+
+					<div role="tablist" aria-label="Editor tools" className="mx-5 grid grid-cols-3 gap-1 rounded-2xl bg-sunken p-1">
+						{TABS.map(([id, label]) => (
+							<button
+								key={id}
+								type="button"
+								role="tab"
+								aria-selected={tab === id}
+								onClick={() => setTab(id)}
+								className={`relative rounded-xl py-2 text-sm font-medium transition ${tab === id ? 'bg-surface shadow-sm' : 'text-muted hover:text-ink'}`}
+							>
+								{label}
+								{changed[id] && <span className="absolute right-2.5 top-2 size-1.5 rounded-full bg-accent" aria-label="changed" />}
+							</button>
+						))}
+					</div>
+
+					<div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:py-5">
+						{tab === 'crop' && (
+							<div className="space-y-4">
+								<div role="group" aria-label="Crop shape" className="space-y-2">
+									<button
+										type="button"
+										onClick={() => choosePreset('free')}
+										disabled={!turned}
+										aria-pressed={presetId === 'free'}
+										className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition disabled:opacity-50 ${presetId === 'free' ? 'bg-accent/12 text-accent ring-2 ring-accent' : 'ring-1 ring-line hover:bg-sunken'}`}
+									>
+										<ShapeGlyph width={4} height={3} dashed />
+										<span>
+											<span className="block text-sm font-semibold leading-tight">Free roam</span>
+											<span className="block text-xs text-muted">Any shape, drag the handles</span>
+										</span>
+									</button>
+									<div className="grid grid-cols-3 gap-2">
+										{RATIO_PRESETS.map((preset) => {
+											const original = preset.ratio === 'original'
+											return (
+												<ShapeTile
+													key={preset.id}
+													title={original ? 'Original' : `${preset.width}:${preset.height}`}
+													subtitle={original ? 'Same shape' : platformName(preset.width, preset.height)}
+													glyph={<ShapeGlyph width={original ? (turned?.width || 4) : preset.width} height={original ? (turned?.height || 3) : preset.height} />}
+													selected={presetId === preset.id}
+													disabled={!turned}
+													onClick={() => choosePreset(preset.id)}
+												/>
+											)
+										})}
+									</div>
+								</div>
+								<button type="button" onClick={swapShape} disabled={!ratio || ratio.width === ratio.height} className={btn('secondary', 'sm', 'w-full')}>Swap portrait and landscape</button>
+								<p className="text-xs text-muted">Drag the box to move it and the handles to resize it. Pick a shape to lock the box to that ratio.</p>
+							</div>
+						)}
+
+						{tab === 'rotate' && (
+							<div className="space-y-6">
+								<div className="grid grid-cols-2 gap-2">
+									<ActionButton icon="rotateLeft" label="Rotate left" onClick={() => rotateBy(-1)} disabled={!turned} />
+									<ActionButton icon="rotateRight" label="Rotate right" onClick={() => rotateBy(1)} disabled={!turned} />
+									<ActionButton icon="flipH" label="Flip horizontally" onClick={() => flipView(false)} disabled={!turned} />
+									<ActionButton icon="flipV" label="Flip vertically" onClick={() => flipView(true)} disabled={!turned} />
+								</div>
+								<Slider id="straighten-angle" label="Straighten" value={straighten} min={-MAX_STRAIGHTEN} max={MAX_STRAIGHTEN} step={0.1} disabled={!turned}
+									format={(value) => `${value.toFixed(1)}°`} onChange={setStraighten} />
+								<p className="text-xs text-muted">Straighten turns the picture a little and trims the empty corners. Double-click a slider to set it back to zero.</p>
+							</div>
+						)}
+
+						{tab === 'colour' && (
+							<div className="space-y-6">
+								<Slider id="adjust-brightness" label="Brightness" value={adjust.brightness} min={-100} max={100} step={1} disabled={!turned} onChange={(value) => setAdjust({ ...adjust, brightness: value })} />
+								<Slider id="adjust-contrast" label="Contrast" value={adjust.contrast} min={-100} max={100} step={1} disabled={!turned} onChange={(value) => setAdjust({ ...adjust, contrast: value })} />
+								<Slider id="adjust-saturation" label="Saturation" value={adjust.saturation} min={-100} max={100} step={1} disabled={!turned} onChange={(value) => setAdjust({ ...adjust, saturation: value })} />
+								<button type="button" onClick={() => setAdjust(NO_ADJUST)} disabled={!hasAdjust(adjust)} className={btn('secondary', 'sm', 'w-full')}>Reset colour</button>
+							</div>
+						)}
+					</div>
+
+					<div className="shrink-0 space-y-3 border-t border-line px-5 py-3 sm:py-4">
+						{note && <p className="text-xs text-muted">{note}</p>}
+						<div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
+							<button type="button" className={btn('ghost', 'sm')} onClick={reset} disabled={!turned}>Reset all</button>
+							<div className="ml-auto flex items-center gap-2">
+								<button type="button" className={btn('secondary', 'md')} onClick={onClose}>Cancel</button>
+								<button type="button" className={btn('primary', 'md')} disabled={!turned} onClick={() => onApply(toEdit({ rotate, flip, straighten, adjust, crop }))}>{applyLabel}</button>
+							</div>
+						</div>
+					</div>
+				</aside>
 			</div>
 		</Modal>
 	)
