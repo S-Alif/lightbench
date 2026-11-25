@@ -5,7 +5,7 @@ import { Badge } from '../ui/Badge.jsx'
 import { CardShell, Empty, Scrim } from './CardShell.jsx'
 
 // ---- a finished (or failed) file inside a job ----------------------------------
-export function ResultCard({ jobId, item, onOpen, onEdit, onInfo }) {
+export function ResultCard({ jobId, item, onOpen, onEdit, onInfo, onVectorize }) {
 	const isDone = item.status === 'done'
 	const isWaiting = item.status === 'queued' || item.status === 'running'     // not finished yet, not an error
 	return (
@@ -30,12 +30,18 @@ export function ResultCard({ jobId, item, onOpen, onEdit, onInfo }) {
 					<Icon name="download" className="size-4.5" />
 				</a>
 			)}
-			{isDone && item.kind === 'image' && (onEdit || onInfo) && (
+			{isDone && item.kind === 'image' && (onEdit || onInfo || onVectorize) && (
 				<div className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5">
 					{onInfo && (
 						<button type="button" onClick={(event) => { event.stopPropagation(); onInfo() }} aria-label={`Details of ${item.out_name}`}
 							className="grid size-8 place-items-center rounded-full bg-black/60 text-white backdrop-blur transition hover:bg-accent">
 							<Icon name="info" className="size-4" />
+						</button>
+					)}
+					{onVectorize && (
+						<button type="button" onClick={(event) => { event.stopPropagation(); onVectorize() }} aria-label={`Vectorize ${item.out_name}`}
+							className="inline-flex h-8 items-center gap-1.5 rounded-full bg-black/60 px-3 text-xs font-medium text-white backdrop-blur transition hover:bg-accent">
+							<Icon name="vector" className="size-3.5" />SVG
 						</button>
 					)}
 					{onEdit && (
@@ -53,7 +59,7 @@ export function ResultCard({ jobId, item, onOpen, onEdit, onInfo }) {
 					</span>
 				</span>
 			)}
-			<div className={`absolute inset-x-0 bottom-0 p-3.5 text-white ${isDone && item.kind === 'image' && (onEdit || onInfo) ? 'pr-28' : ''}`}>
+			<div className={`absolute inset-x-0 bottom-0 p-3.5 text-white ${isDone && item.kind === 'image' && (onEdit || onInfo || onVectorize) ? 'pr-28' : ''}`}>
 				<p className="truncate text-sm font-semibold" title={item.out_name || item.name}>{item.out_name || item.name}</p>
 				{isDone
 					? <p className="tnum truncate text-xs text-white/75">{item.w && `${item.w}×${item.h} · `}{fmtBytes(item.size)}{item.kind === 'video' && item.duration ? ` · ${fmtClock(item.duration)}` : ''}</p>

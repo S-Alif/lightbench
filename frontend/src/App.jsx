@@ -10,6 +10,7 @@ import { useStored } from './hooks/usePersistentState.js'
 import { navigateTo, useHashRoute } from './hooks/useRoute.js'
 import HistoryPage from './pages/HistoryPage.jsx'
 import JobDetailPage from './pages/JobDetailPage.jsx'
+import VectorizePage from './pages/VectorizePage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import NewJobPage from './pages/NewJobPage.jsx'
 
@@ -114,7 +115,7 @@ export default function App() {
 	if (!auth.authenticated) return <LoginPage onLoggedIn={() => window.location.reload()} />
 
 	const page = route.page
-	const navCls = (active) => `inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-xl px-3 text-sm sm:px-4 font-medium transition ${active ? 'bg-sunken text-ink' : 'text-muted hover:bg-sunken hover:text-ink'}`
+	const navCls = (active) => `max-sm:[&_svg]:hidden inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-xl px-3 text-sm sm:px-4 font-medium transition ${active ? 'bg-sunken text-ink' : 'text-muted hover:bg-sunken hover:text-ink'}`
 
 	return (
 		<ToastProvider>
@@ -140,6 +141,10 @@ export default function App() {
 							className={navCls(page === 'new')}
 						>
 							<Icon name="plus" className="size-4" />New job
+						</a>
+						{/* vectorizer link */}
+						<a href="/vectorize" className={navCls(page === 'vectorize')}>
+							<Icon name="vector" className="size-4" />Vectorizer
 						</a>
 						{/* history link */}
 						<a 
@@ -175,8 +180,9 @@ export default function App() {
 				}
 
 				{page === 'history' && <HistoryPage system={system} />}
+				{page === 'vectorize' && <VectorizePage />}
 				{page === 'job' && route.id && <JobDetailPage id={route.id} system={system} models={models} />}
-				{(page === 'new' || !['history', 'job'].includes(page)) && (
+				{(page === 'new' || !['history', 'job', 'vectorize'].includes(page)) && (
 					<NewJobPage 
 						opts={opts} 
 						setOpts={setOpts} 

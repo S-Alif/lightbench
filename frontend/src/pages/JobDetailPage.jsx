@@ -12,6 +12,7 @@ import { Modal } from '../components/ui/Modal.jsx'
 import { useToast } from '../components/ui/Toast.jsx'
 import { navigateTo } from '../hooks/useRoute.js'
 import { copyText } from '../lib/clipboard.js'
+import { setVectorizeHandoff } from '../lib/vectorizeHandoff.js'
 import { fmtBytes, fmtClock, fmtDate } from '../lib/format.js'
 import { modelLabel } from '../lib/models.js'
 
@@ -99,6 +100,14 @@ export default function JobDetailPage({ id, system, models }) {
 	const [editingItem, setEditingItem] = useState(null)
 	const [infoItem, setInfoItem] = useState(null)
 	const toast = useToast()
+	// fetch the finished image and hand it to the vectorizer page
+	const vectorizeResult = async (item) => {
+		try {
+			const blob = await fetch(api.fileUrl(job.id, item.id, true)).then((response) => { if (!response.ok) throw new Error(); return response.blob() })
+			setVectorizeHandoff(new File([blob], item.out_name, { type: blob.type }))
+			navigateTo('vectorize')
+		} catch { toast('Could not load that image') }
+	}
 
 	const load = useCallback(() => api.job(id).then(setJob).catch((loadError) => setError(loadError.message)), [id])
 
@@ -198,7 +207,7 @@ export default function JobDetailPage({ id, system, models }) {
 				<ul className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
 					{job.items.map((item) => {
 						const doneIndex = done.findIndex((doneItem) => doneItem.id === item.id)
-						return <li key={item.id} className="min-w-0"><ResultCard jobId={job.id} item={item} onOpen={() => setView(doneIndex)} onEdit={() => setEditingItem(item)} onInfo={() => setInfoItem(item)} /></li>
+						return <li key={item.id} className="min-w-0"><ResultCard jobId={job.id} item={item} onOpen={() => setView(doneIndex)} onEdit={() => setEditingItem(item)} onInfo={() => setInfoItem(item)} onVectorize={() => vectorizeResult(item)} /></li>
 					})}
 				</ul>
 			)}

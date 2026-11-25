@@ -23,6 +23,12 @@ export const api = {
 		return fetch('/api/inspect', { method: 'POST', body: formData }).then(json)
 	},
 	itemMetadata: (jobId, itemId) => fetch(`/api/jobs/${jobId}/items/${itemId}/metadata`).then(json),
+	vectorize: (file, options, signal) => {
+		const formData = new FormData()
+		formData.append('file', file)
+		formData.append('options', JSON.stringify(options))
+		return fetch('/api/vectorize', { method: 'POST', body: formData, signal }).then(json)
+	},
 	models: () => fetch('/api/models').then(json),
 	jobs: () => fetch('/api/jobs').then(json),
 	job: (id) => fetch(`/api/jobs/${id}`).then(json),

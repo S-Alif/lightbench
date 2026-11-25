@@ -45,7 +45,7 @@ No accounts, no cloud, nothing leaves your machine.
 - **Basic editor** for each image before upscaling: crop (free roam or ratio presets, with platform names such as Instagram post or YouTube shown only where the ratio matches their guidance), rotate, flip, straighten, and brightness, contrast and saturation with a live preview
 - **Edit finished results too:** open a result from History and edit it. It is saved as a new entry and the original result stays untouched
 - **Image details:** see the camera, date, GPS location and AI prompts hidden inside a picked image or a result
-- **Text watermark** with nine positions, color, opacity, and a size that is either a percentage of the image or fixed pixels
+- **Text watermark** with nine positions, colour, opacity, and a size that is either a percentage of the image or fixed pixels
 - **Life-sized watermark preview** that copies the aspect ratio of your first file, so what you place is what you get
 - **Images:** JPG, PNG, WebP. **Videos:** H.264 MP4 with the original audio kept
 - **Batch processing** with live progress on every file card and a summary above them: percentage, file counter, elapsed time and ETA
@@ -53,15 +53,28 @@ No accounts, no cloud, nothing leaves your machine.
 - **History:** every job is stored on disk. Come back later, view the results and download them one by one or as a `.zip`
 - **Safe deletes:** removing a job shows the folder it lives in and asks for confirmation
 - **One kind per job:** a job is all images or all videos, never mixed
+- **Vectorizer:** turn an image into a clean SVG for the web or design apps, with style presets and a live before/after preview (powered by [VTracer](https://github.com/visioncortex/vtracer)). Also available as an **SVG** button on finished images in History
 - **Runs anywhere Python and PyTorch run:** NVIDIA, AMD (Linux), Apple Silicon, or plain CPU
 - **Automatic out-of-memory recovery:** if the GPU runs out of memory, tiles shrink and the file is retried
 
 ## Quick start
 
-You need **Python 3.10 or newer**. On Windows, tick **"Add python.exe to PATH"** in the installer.
+You need **Python 3.10 to 3.13**. If it is missing, the launchers below tell you how to get it (on Windows they can install it for you with winget).
+
+**Easiest: double-click a launcher** in the project folder.
+
+| System | File |
+| --- | --- |
+| Windows | `Start-Lightbench.bat` |
+| macOS | `Start-Lightbench.command` (the first time: right-click, Open) |
+| Linux | `start-lightbench.sh` (mark it as executable, or run `bash start-lightbench.sh`) |
+
+If a zip download stripped the executable bit, run `chmod +x start-lightbench.sh Start-Lightbench.command` once.
+
+**Or from a terminal:**
 
 ```bash
-git clone https://github.com/<your-username>/lightbench.git
+git clone https://github.com/S-Alif/lightbench.git
 cd lightbench
 python run.py
 ```
@@ -164,6 +177,7 @@ On Windows PowerShell: `$env:LIGHTBENCH_DATA = "D:\lightbench"; python run.py`
 ```text
 lightbench/
 ├── run.py                  start the app
+├── start-lightbench.sh     double-click launchers: Linux, macOS (.command) and Windows (.bat)
 ├── setup.py                one-time setup (virtualenv, PyTorch, frontend build)
 ├── requirements.txt        python packages (PyTorch is installed by setup.py)
 ├── backend/                python server (Starlette + uvicorn)
@@ -174,6 +188,7 @@ lightbench/
 │   ├── core/               processing, no web code
 │   │   ├── pipeline.py     edit, upscale, watermark, save
 │   │   ├── editing/        crop and rotate
+│   │   ├── vector/         image to svg (vtracer)
 │   │   ├── upscaler.py     tiled inference with out-of-memory fallback
 │   │   ├── models/         model catalog, architectures, weight loading
 │   │   └── media/          video, thumbnails, watermark, file types
@@ -215,7 +230,7 @@ The code is written to work on Windows, macOS and Linux. The CPU path, the API a
 - Image watermarks (logos), not only text
 - More model families
 
-> Ideas are welcomed but not taking any PR now.
+Ideas and pull requests are welcome.
 
 ## Credits
 
@@ -243,6 +258,8 @@ Lightbench is a thin, friendly layer. The hard part, the actual super-resolution
 **BasicSR** by Xintao Wang and contributors ([XPixelGroup/BasicSR](https://github.com/XPixelGroup/BasicSR), Apache 2.0). The `RRDBNet` and `SRVGGNetCompact` network definitions in `backend/core/models/architectures.py` follow the architectures published in BasicSR and Real-ESRGAN, so that the official weights load unchanged.
 
 ### Libraries
+
+- [VTracer](https://github.com/visioncortex/vtracer) (MIT) traces images into SVG
 
 [PyTorch](https://pytorch.org) · [Starlette](https://www.starlette.io) · [Uvicorn](https://www.uvicorn.org) · [Pillow](https://python-pillow.org) · [NumPy](https://numpy.org) · [FFmpeg](https://ffmpeg.org) via [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg) · [React](https://react.dev) · [Vite](https://vite.dev) · [Tailwind CSS](https://tailwindcss.com)
 

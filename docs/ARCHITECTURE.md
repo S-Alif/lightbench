@@ -91,3 +91,16 @@ The edit is stored on the item in `job.json`. `features/editor/editMath.js` mirr
 | GET | `/api/jobs/{id}/items/{item}/file` | a result (`?inline=1` for previews) |
 | POST | `/api/jobs/{id}/items/{item}/edit` | crop / rotate a finished image (`{"edit": ...}`); saved as a new job, the result is left as it is |
 | GET | `/api/jobs/{id}/items/{item}/thumb` | a thumbnail |
+
+## Launchers
+
+`Start-Lightbench.bat`, `Start-Lightbench.command` and `start-lightbench.sh` only locate Python 3.10 to 3.13 and run `run.py`. They hold no setup logic: virtualenv, PyTorch flavour, packages and font all stay in `setup.py`, so there is one place to change.
+
+## Vectorizer
+
+`POST /api/vectorize` takes one image (`file`) and `options` (JSON) and returns `{svg, width, height, paths, bytes}`. Nothing is written to disk.
+
+- `core/vector/preprocess.py` cleans the image before tracing: finds a solid background colour, smooths, learns a small flat palette (k-means on calm pixels, edge-blend colours dropped) and repaints every pixel with it, so vtracer sees flat colours and crisp edges. Optionally (`merge_small`, 0 is off) it then repaints tiny patches and hairlines with the colour around them, so they don't become shapes of their own.
+- `core/vector/tracer.py` validates options (`TraceOptions`), shrinks big images, and calls `vtracer`, then removes background-coloured shapes from the svg (uses non-overlapping layers so holes in letters come out right). The converter is injectable so tests run without the library.
+- `services/vectorize.py` runs one trace at a time.
+- Frontend: `pages/VectorizePage.jsx`, presets in `features/vectorizer/presets.js`. Changing any control re-traces after a short pause and cancels the older request. History result cards hand an image over through `lib/vectorizeHandoff.js`.
