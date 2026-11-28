@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from starlette.responses import JSONResponse
 
-from ...config import DATA_DIR, MODELS_DIR
+from ...config import DATA_DIR, LOCATIONS_FILE, MODELS_DIR
 from ..helpers import is_local_request
 
 
@@ -15,7 +15,7 @@ async def usage(request):
 
 async def system(request):
     from ...core.media import video
-    info: dict = {"ffmpeg": video.ffmpeg_available(), "data_dir": str(DATA_DIR.resolve()),
+    info: dict = {"ffmpeg": video.ffmpeg_available(), "data_dir": str(DATA_DIR.resolve()), "locations_file": str(LOCATIONS_FILE.resolve()),
                   "models_dir": str(MODELS_DIR.resolve()), "local": is_local_request(request)}
     try:
         from ...core import device

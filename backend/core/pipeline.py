@@ -37,6 +37,7 @@ class JobOptions:
     fp32: bool = False
     video_crf: int = 18
     video_preset: str = "medium"
+    location: str = ""              # folder to keep this job in ("" = the app's own data folder). not saved in job.json
     watermark: Optional[watermark_module.WatermarkOptions] = field(default=None)
 
     @classmethod
@@ -56,6 +57,7 @@ class JobOptions:
         options.fp32 = bool(data.get("fp32", options.fp32))
         options.video_crf = int(data.get("video_crf", options.video_crf))
         options.video_preset = data.get("video_preset", options.video_preset)
+        options.location = str(data.get("location") or "").strip()[:1000]
         options.watermark = watermark_module.WatermarkOptions.from_dict(data.get("watermark"))
         if options.profile not in ("photo", "art"):
             raise ValueError("profile must be 'photo' or 'art'")

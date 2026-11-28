@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api/client.js'
 import { JobCard } from '../components/cards/JobCard.jsx'
+import { LostJobCard } from '../components/cards/LostJobCard.jsx'
 import Icon from '../components/icons/Icon.jsx'
 import DeleteDialog from '../components/jobs/DeleteDialog.jsx'
 import { btn } from '../components/ui/buttonStyles.js'
@@ -34,6 +35,11 @@ export default function HistoryPage({ system }) {
 	}, [anyActive, load])
 
 	const jobs = (data?.jobs || []).filter((job) => tab === 'all' || job.kind === tab)
+	const lost = tab === 'all' ? (data?.unreachable || []) : []
+	const removeLost = (job) => {
+		if (!window.confirm('Remove this job from the list? No files are deleted. You can add the path back in job-locations.json later.')) return
+		api.remove(job.id).then(() => { toast('Removed from the list'); load() }).catch((removeError) => toast(removeError.message, 'bad'))
+	}
 	const totalBytes = (data?.jobs || []).reduce((total, job) => total + job.total_bytes, 0)
 
 	return (
@@ -42,7 +48,7 @@ export default function HistoryPage({ system }) {
 				<div>
 					<h1 className="text-3xl font-semibold tracking-tight">History</h1>
 					<p className="mt-2 text-muted">
-						{data ? `${plural(data.jobs.length, 'job')} · ${fmtBytes(totalBytes)} on disk` : 'Loading…'}
+						{data ? `${plural(data.jobs.length, 'job')} · ${fmtBytes(totalBytes)} on disk${data.unreachable?.length ? ` · ${data.unreachable.length} unreachable` : ''}` : 'Loading…'}
 					</p>
 				</div>
 				<div className="flex gap-1 rounded-xl bg-sunken p-1" role="tablist">
@@ -56,7 +62,7 @@ export default function HistoryPage({ system }) {
 			{data && (
 				<div className="mb-8 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl bg-surface p-4 ring-1 ring-line">
 					<Icon name="folder" className="size-5 shrink-0 text-accent" />
-					<p className="text-sm text-muted">All results are stored in</p>
+					<p className="text-sm text-muted">By default, jobs are stored in</p>
 					<code className="min-w-0 flex-1 basis-64 break-all font-mono text-xs">{data.data_dir}</code>
 					<button type="button" className={btn('ghost', 'sm')} onClick={async () => toast((await copyText(data.data_dir)) ? 'Path copied' : 'Could not copy', 'ok')}>
 						<Icon name="copy" className="size-4" />Copy
@@ -66,7 +72,7 @@ export default function HistoryPage({ system }) {
 
 			{error && <p className="rounded-2xl bg-bad/10 p-4 text-bad" role="alert">{error}</p>}
 
-			{data && jobs.length === 0 && (
+			{data && jobs.length === 0 && lost.length === 0 && (
 				<div className="grid place-items-center rounded-3xl border-2 border-dashed border-line px-6 py-24 text-center">
 					<span className="mb-4 grid size-16 place-items-center rounded-2xl bg-sunken text-muted"><Icon name="history" className="size-8" /></span>
 					<p className="text-xl font-semibold">{data.jobs.length ? `No ${tab} jobs yet` : 'Nothing here yet'}</p>
@@ -75,11 +81,16 @@ export default function HistoryPage({ system }) {
 				</div>
 			)}
 
-			{jobs.length > 0 && (
+			{(jobs.length > 0 || lost.length > 0) && (
 				<ul className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
 					{jobs.map((job) => (
 						<li key={job.id} className="min-w-0">
 							<JobCard job={job} onOpen={() => navigateTo(`job/${job.id}`)} onDelete={() => setDel(job)} />
+						</li>
+					))}
+					{lost.map((job) => (
+						<li key={job.id} className="min-w-0">
+							<LostJobCard job={job} onRetry={load} onRemove={() => removeLost(job)} />
 						</li>
 					))}
 				</ul>

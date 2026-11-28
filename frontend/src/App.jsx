@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { LOCKED_EVENT, api } from './api/client.js'
 import Icon from './components/icons/Icon.jsx'
 import { Banner } from './components/layout/Banner.jsx'
+import { FreeNotice } from './components/layout/FreeNotice.jsx'
 import { Device } from './components/layout/Device.jsx'
 import { btn } from './components/ui/buttonStyles.js'
 import { ToastProvider } from './components/ui/Toast.jsx'
@@ -11,6 +12,7 @@ import { navigateTo, useHashRoute } from './hooks/useRoute.js'
 import HistoryPage from './pages/HistoryPage.jsx'
 import JobDetailPage from './pages/JobDetailPage.jsx'
 import VectorizePage from './pages/VectorizePage.jsx'
+import ToolsPage from './pages/ToolsPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import NewJobPage from './pages/NewJobPage.jsx'
 
@@ -112,13 +114,14 @@ export default function App() {
 	}
 
 	if (!auth) return null
-	if (!auth.authenticated) return <LoginPage onLoggedIn={() => window.location.reload()} />
+	if (!auth.authenticated) return <><FreeNotice /><LoginPage onLoggedIn={() => window.location.reload()} /></>
 
 	const page = route.page
-	const navCls = (active) => `max-sm:[&_svg]:hidden inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-xl px-3 text-sm sm:px-4 font-medium transition ${active ? 'bg-sunken text-ink' : 'text-muted hover:bg-sunken hover:text-ink'}`
+	const navCls = (active) => `max-sm:[&_svg]:hidden inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-xl px-2.5 text-sm sm:px-4 font-medium transition ${active ? 'bg-sunken text-ink' : 'text-muted hover:bg-sunken hover:text-ink'}`
 
 	return (
 		<ToastProvider>
+			<FreeNotice />
 
 			{/* header */}
 			<header className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur-md">
@@ -133,18 +136,22 @@ export default function App() {
 					</a>
 
 					{/* navs */}
-					<nav className="flex min-w-0 gap-1" aria-label="Main">
+					<nav className="flex min-w-0 gap-0.5 overflow-x-auto sm:gap-1" aria-label="Main">
 
 						{/* new job link */}
 						<a 
 							href="/" 
 							className={navCls(page === 'new')}
 						>
-							<Icon name="plus" className="size-4" />New job
+							<Icon name="plus" className="size-4" /><span className="sm:hidden">New</span><span className="hidden sm:inline">New job</span>
+						</a>
+						{/* picture tools link */}
+						<a href="/tools" className={navCls(page === 'tools')}>
+							<Icon name="image" className="size-4" />Tools
 						</a>
 						{/* vectorizer link */}
 						<a href="/vectorize" className={navCls(page === 'vectorize')}>
-							<Icon name="vector" className="size-4" />Vectorizer
+							<Icon name="vector" className="size-4" /><span className="sm:hidden">Vector</span><span className="hidden sm:inline">Vectorizer</span>
 						</a>
 						{/* history link */}
 						<a 
@@ -181,8 +188,9 @@ export default function App() {
 
 				{page === 'history' && <HistoryPage system={system} />}
 				{page === 'vectorize' && <VectorizePage />}
+				{page === 'tools' && <ToolsPage system={system} />}
 				{page === 'job' && route.id && <JobDetailPage id={route.id} system={system} models={models} />}
-				{(page === 'new' || !['history', 'job', 'vectorize'].includes(page)) && (
+				{(page === 'new' || !['history', 'job', 'vectorize', 'tools'].includes(page)) && (
 					<NewJobPage 
 						opts={opts} 
 						setOpts={setOpts} 

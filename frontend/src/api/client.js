@@ -9,6 +9,20 @@ const json = async (response) => {
 	return body
 }
 
+// the tools answer with a file (headers say how big) or, when saving to a folder, with json
+async function toolRequest(tool, parts, options, signal) {
+	const formData = new FormData()
+	for (const [name, file] of parts) formData.append(name, file)
+	formData.append('options', JSON.stringify(options))
+	const response = await fetch(`/api/tools/${tool}`, { method: 'POST', body: formData, signal })
+	if ((response.headers.get('content-type') || '').includes('application/json')) return { info: await json(response) }
+	if (!response.ok) await json(response)
+	return {
+		blob: await response.blob(),
+		info: { width: Number(response.headers.get('x-width')), height: Number(response.headers.get('x-height')), ext: response.headers.get('x-ext'), note: response.headers.get('x-note') || '' },
+	}
+}
+
 export const api = {
 	authStatus: () => fetch('/api/auth/status').then(json),
 	login: (password) => fetch('/api/auth/login', {
@@ -29,6 +43,10 @@ export const api = {
 		formData.append('options', JSON.stringify(options))
 		return fetch('/api/vectorize', { method: 'POST', body: formData, signal }).then(json)
 	},
+	toolsConvert: (file, options, signal) => toolRequest('convert', [['file', file]], options, signal),
+	toolsSplit: (file, options, signal) => toolRequest('split', [['file', file]], options, signal),
+	toolsCollage: (files, options, signal) => toolRequest('collage', files.map((file) => ['files', file]), options, signal),
+	toolsPalette: (file, count, signal) => toolRequest('palette', [['file', file]], { count }, signal).then((answer) => answer.info.colours),
 	models: () => fetch('/api/models').then(json),
 	jobs: () => fetch('/api/jobs').then(json),
 	job: (id) => fetch(`/api/jobs/${id}`).then(json),

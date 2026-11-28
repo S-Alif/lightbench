@@ -118,7 +118,6 @@ export default function JobDetailPage({ id, system, models }) {
 	}, [load])
 
 	const active = job && (job.status === 'running' || job.status === 'queued')
-
 	useEffect(() => { if (!active) return; const intervalId = setInterval(load, 1500); return () => clearInterval(intervalId) }, [active, load])
 
 	if (error) {

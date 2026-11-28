@@ -203,6 +203,7 @@ export default function NewJobPage({
 						onRefreshModels={onRefreshModels} 
 						refreshing={refreshing} 
 						disabled={Boolean(run)}
+						local={Boolean(system?.local)}
 						sourceSize={firstFileSize && editedSize(firstFileSize.width, firstFileSize.height, edits[firstFile?.id])}
 					/>
 				</aside>

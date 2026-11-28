@@ -9,7 +9,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = Path(os.environ.get("LIGHTBENCH_DATA", ROOT / "data"))
-JOBS_DIR = DATA_DIR / "jobs"
+JOBS_DIR = DATA_DIR / "jobs"                     # where jobs go unless a job asks for another folder
+LOCATIONS_FILE = DATA_DIR / "job-locations.json"  # where every job folder lives (see services/jobs/locations.py)
 PASSWORD = os.environ.get("LIGHTBENCH_PASSWORD") or None
 MODELS_DIR = Path(os.environ.get("LIGHTBENCH_MODELS", ROOT / "models"))
 FONT_DIR = ROOT / "models" / "fonts"   # filled by setup.py (Noto Sans, SIL OFL)

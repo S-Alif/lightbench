@@ -24,7 +24,7 @@ export default function LoginPage({ onLoggedIn }) {
 	}
 
 	return (
-		<main className="grid min-h-screen place-items-center px-4">
+		<main className="grid min-h-[calc(100vh-2.25rem)] place-items-center px-4">
 			<form onSubmit={submit} className="w-full max-w-sm space-y-5 rounded-3xl bg-surface p-7 ring-1 ring-line shadow-xl">
 				<div className="flex items-center gap-3">
 					<span className="grid size-10 place-items-center rounded-xl bg-accent text-accent-ink shadow-sm"><Icon name="sparkles" className="size-5" /></span>

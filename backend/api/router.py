@@ -8,6 +8,7 @@ from .routes.files import item_file, item_metadata, item_thumb, job_zip
 from .routes.jobs import cancel_job, create_job, delete_job, edit_result, get_job, inspect_file, list_jobs, open_folder
 from .routes.models import list_models
 from .routes.system import system, usage
+from .routes.tools import collage, convert, palette, split
 from .routes.vectorize import vectorize
 
 api_routes = [
@@ -18,6 +19,10 @@ api_routes = [
     Route("/api/system/usage", usage),
     Route("/api/models", list_models),
     Route("/api/vectorize", vectorize, methods=["POST"]),
+    Route("/api/tools/convert", convert, methods=["POST"]),
+    Route("/api/tools/collage", collage, methods=["POST"]),
+    Route("/api/tools/split", split, methods=["POST"]),
+    Route("/api/tools/palette", palette, methods=["POST"]),
     Route("/api/inspect", inspect_file, methods=["POST"]),
     Route("/api/jobs", list_jobs),
     Route("/api/jobs", create_job, methods=["POST"]),

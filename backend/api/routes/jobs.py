@@ -10,7 +10,7 @@ from pathlib import Path
 
 from starlette.responses import JSONResponse
 
-from ...config import JOBS_DIR
+from ...config import JOBS_DIR, LOCATIONS_FILE
 from ...core import pipeline
 from ...core.editing.operations import validate_edit
 from ...core.media.types import IMAGE_EXT, VIDEO_EXT
@@ -19,9 +19,18 @@ from ..deps import manager
 from ..helpers import error_response, get_job_or_404, is_local_request, safe_name
 
 
+def discard_new_folder(location: Path) -> None:
+    """removes the folder of a job that was never created (it only holds this request's uploads)."""
+    shutil.rmtree(location / "in", ignore_errors=True)
+    try:
+        location.rmdir()
+    except OSError:
+        pass
+
+
 async def list_jobs(request):
-    return JSONResponse({"jobs": [job.summary() for job in manager.list()],
-                         "data_dir": str(JOBS_DIR.resolve())})
+    return JSONResponse({"jobs": [job.summary() for job in manager.list()], "unreachable": manager.unreachable(),
+                         "data_dir": str(JOBS_DIR.resolve()), "locations_file": str(LOCATIONS_FILE.resolve())})
 
 
 async def create_job(request):
@@ -30,6 +39,8 @@ async def create_job(request):
         opts = pipeline.JobOptions.from_dict(json.loads(form.get("options") or "{}"))
     except (ValueError, TypeError) as options_error:
         return error_response(f"Invalid options: {options_error}")
+    if opts.location and not is_local_request(request):
+        return error_response("Keeping a job in another folder only works on the computer that runs the app", 403)
     files = [uploaded_file for uploaded_file in form.getlist("files") if hasattr(uploaded_file, "filename")]
     if not files:
         return error_response("No files uploaded")
@@ -49,8 +60,12 @@ async def create_job(request):
     if len(kinds) > 1:
         return error_response("Images and videos can't be processed in the same job. Upload them separately.")
     job_id = manager.new_id()
-    in_dir = JOBS_DIR / job_id / "in"
-    in_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        location = manager.plan_location(job_id, opts.location)
+        in_dir = location / "in"
+        in_dir.mkdir()
+    except ValueError as folder_error:
+        return error_response(str(folder_error))
     uploads = []
     try:
         for idx, uploaded_file in enumerate(files):
@@ -66,15 +81,15 @@ async def create_job(request):
                     out.write(chunk)
             uploads.append((safe_name(uploaded_file.filename), dst, kind, edits[idx]))
     except ValueError as edit_error:
-        shutil.rmtree(in_dir.parent, ignore_errors=True)
+        discard_new_folder(location)
         return error_response(str(edit_error))
     except Exception:
-        shutil.rmtree(in_dir.parent, ignore_errors=True)
+        discard_new_folder(location)
         raise
     if not uploads:
-        shutil.rmtree(in_dir.parent, ignore_errors=True)
+        discard_new_folder(location)
         return error_response("None of the files are supported images or videos")
-    return JSONResponse(manager.create(job_id, opts, uploads).to_dict())
+    return JSONResponse(manager.create(job_id, opts, uploads, location).to_dict())
 
 
 async def edit_result(request):
@@ -97,16 +112,20 @@ async def edit_result(request):
         "scale": 1, "fmt": item.out.suffix.lstrip(".").lower(), "quality": job.opts_dict.get("quality", 95),
         "keep_metadata": job.opts_dict.get("keep_metadata", False), "watermark": None})
     new_id = manager.new_id()
-    in_dir = JOBS_DIR / new_id / "in"
-    in_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        location = manager.plan_location(new_id, like=job)      # next to the job it came from
+        in_dir = location / "in"
+        in_dir.mkdir()
+    except ValueError as folder_error:
+        return error_response(str(folder_error))
     copy_path = in_dir / f"0_{item.out.name}"
     try:
         shutil.copyfile(item.out, copy_path)
     except Exception:
-        shutil.rmtree(in_dir.parent, ignore_errors=True)
+        discard_new_folder(location)
         raise
     new_name = f"{item.out.stem}-edited{item.out.suffix}"
-    return JSONResponse(manager.create(new_id, opts, [(new_name, copy_path, "image", edit)]).to_dict())
+    return JSONResponse(manager.create(new_id, opts, [(new_name, copy_path, "image", edit)], location).to_dict())
 
 
 async def inspect_file(request):
@@ -166,3 +185,4 @@ async def open_folder(request):
     except Exception as open_error:  # noqa: BLE001
         return error_response(f"Could not open the folder: {open_error}", 500)
     return JSONResponse({"ok": True})
+

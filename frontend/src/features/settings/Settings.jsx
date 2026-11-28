@@ -17,6 +17,7 @@ export default function Settings({
 	onRefreshModels, 
 	refreshing, 
 	sourceSize,
+	local,
 	disabled 
 }) {
 	const set = (patch) => setOpts((currentOptions) => ({ ...currentOptions, ...patch }))
@@ -92,6 +93,17 @@ export default function Settings({
 						onChange={(scale) => set({ scale })}
 						options={[[1, 'Off'], [2, '2×'], [3, '3×'], [4, '4×']]} 
 					/>
+				</Field>
+			</Section>
+
+			<Section title="Where to save" icon="folder">
+				<Field label="Folder for this job" hint="optional">
+					<input type="text" value={opts.location || ''} onChange={(event) => set({ location: event.target.value })} disabled={!local} placeholder="/home/you/Pictures/Lightbench" spellCheck={false} aria-label="Folder for this job" className={`${inputCls} disabled:opacity-50`} />
+					<p className="text-xs text-muted">
+						{local
+							? 'The whole job (results, previews and its history record) is saved in its own folder inside this one, like the app\'s data folder does. Nothing is stored twice and the job still shows in History. Empty uses the app\'s own data folder.'
+							: 'Only available when you open Lightbench on the computer that runs it (for example http://localhost:8000).'}
+					</p>
 				</Field>
 			</Section>
 

@@ -5,6 +5,7 @@ export const DEFAULTS = {
 	fmt: 'jpg',
 	quality: 95,
 	keep_metadata: false,
+	location: '',
 	tile: 512,
 	fp32: false,
 	video_crf: 18,

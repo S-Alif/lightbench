@@ -1,6 +1,7 @@
 """data classes for a job and the files inside it, and how they are saved to disk.
 
-Every job lives in data/jobs/<id>/ :
+Every job lives in its own folder (by default data/jobs/<id>/, or wherever the person chose;
+data/job-locations.json says where each one is):
     job.json      settings + per-file results (this is the history record)
     out/          the finished files
     thumbs/       small previews for the cards
@@ -71,10 +72,11 @@ class Job:
     started: Optional[float] = None
     finished: Optional[float] = None
     cancel: threading.Event = field(default_factory=threading.Event)
+    location: Optional[Path] = None                  # the job folder; None only for objects built by hand in tests
 
     @property
     def dir(self) -> Path:
-        return JOBS_DIR / self.id
+        return self.location or (JOBS_DIR / self.id)
 
     @property
     def active(self) -> bool:
@@ -140,7 +142,8 @@ class Job:
             data = json.loads((job_dir / "job.json").read_text(encoding="utf-8"))
             job = cls(id=data["id"], opts_dict=data.get("opts", {}), items=[],
                       created=data.get("created", job_dir.stat().st_mtime),
-                      started=data.get("started"), finished=data.get("finished"))
+                      started=data.get("started"), finished=data.get("finished"),
+                      location=job_dir)
             job.items = [Item.from_json(item_data, job_dir) for item_data in data.get("items", [])]
             return job
         except Exception:  # noqa: BLE001

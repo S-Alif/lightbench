@@ -50,7 +50,7 @@
 ## How a job flows
 
 1. The browser posts files and options to `POST /api/jobs` (`api/routes/jobs.py`).
-2. The route validates the options (`core/pipeline.JobOptions`), saves the uploads into `data/jobs/<id>/in/` and hands the job to `JobManager`.
+2. The route validates the options (`core/pipeline.JobOptions`), creates the job folder (`JobManager.plan_location`: `data/jobs/<id>/` or the folder the person chose), saves the uploads into its `in/` and hands the job to `JobManager`, which records the folder in `data/job-locations.json`.
 3. The worker thread runs each file through `core/pipeline.py`: edit (`core/editing`), upscale (`core/upscaler.py`), watermark (`core/media/watermark.py`), save.
 4. Progress is kept in memory and polled by the browser from `GET /api/jobs/{id}`. The finished state is written to `job.json`.
 
